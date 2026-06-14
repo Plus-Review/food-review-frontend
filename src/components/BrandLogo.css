@@ -1,0 +1,109 @@
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.brand-logo-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 38px;
+  border: 1px solid rgba(31, 63, 47, 0.12);
+  border-radius: 10px;
+  background: #1f3f2f;
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(31, 63, 47, 0.16);
+}
+
+.brand-logo-mark::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: 7px;
+  left: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(239, 184, 79, 0.88);
+}
+
+.brand-logo-letters {
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.brand-logo-plus {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fbfaf6;
+  border-radius: 50%;
+  background: #efb84f;
+  color: #1f3f2f;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.brand-logo-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.brand-logo-copy strong,
+.brand-logo-copy small {
+  display: block;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.brand-logo-copy strong {
+  color: #181714;
+  font-size: 15px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.brand-logo-copy small {
+  color: #71695d;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.brand-logo--light .brand-logo-copy strong {
+  color: #fff;
+}
+
+.brand-logo--light .brand-logo-copy small {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.brand-logo--light .brand-logo-plus {
+  border-color: #163728;
+}
+
+@media (max-width: 640px) {
+  .brand-logo-mark {
+    width: 42px;
+    height: 36px;
+  }
+
+  .brand-logo-copy strong {
+    font-size: 14px;
+  }
+
+  .brand-logo-copy small {
+    display: none;
+  }
+}

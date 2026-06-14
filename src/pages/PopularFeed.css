@@ -1,0 +1,104 @@
+.popular-page .popular-hero {
+  background-image:
+    linear-gradient(90deg, rgba(13, 17, 14, 0.82) 0%, rgba(13, 17, 14, 0.54) 45%, rgba(13, 17, 14, 0.16) 78%, rgba(13, 17, 14, 0.05) 100%),
+    var(--category-image);
+  background-position: center 54%;
+}
+
+.popular-page .category-kicker {
+  margin-top: 0;
+  background: rgba(239, 184, 79, 0.22);
+  color: #ffe8ae;
+}
+
+.popular-side-panel {
+  align-content: start;
+}
+
+.popular-side-list button {
+  grid-template-columns: 54px minmax(0, 1fr);
+  padding: 8px;
+}
+
+.popular-side-list img {
+  width: 54px;
+  height: 54px;
+}
+
+.popular-side-list strong {
+  font-size: 12.5px;
+}
+
+.popular-side-list small {
+  font-size: 11.5px;
+}
+
+.popular-side-empty {
+  display: grid;
+  gap: 6px;
+  border: 1px dashed rgba(31, 63, 47, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.64);
+  color: #756f64;
+  padding: 14px;
+}
+
+.popular-side-empty strong {
+  color: #181714;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.popular-side-empty span {
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.popular-side-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #1f3f2f;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 950;
+  padding: 10px 12px;
+  box-shadow: 0 12px 26px rgba(31, 63, 47, 0.14);
+}
+
+.popular-umkm-card .category-umkm-image span {
+  background: rgba(255, 244, 216, 0.96);
+  color: #8a5a00;
+}
+
+@media (max-width: 640px) {
+  .popular-page .popular-hero {
+    background-position: 54% center;
+  }
+
+  .popular-side-list button {
+    grid-template-columns: 50px minmax(0, 1fr);
+  }
+
+  .popular-side-list img {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .popular-side-action {
+    transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+
+  .popular-side-action:hover {
+    background: #173326;
+    box-shadow: 0 16px 30px rgba(31, 63, 47, 0.18);
+    transform: translateY(-1px);
+  }
+}

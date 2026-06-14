@@ -1,213 +1,633 @@
-import React, { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import apiClient from '../api/apiClient';
+import AppNavbar from '../components/AppNavbar';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-let DefaultIcon = L.icon({ iconUrl: markerIcon, shadowUrl: markerShadow, iconSize: [25, 41], iconAnchor: [12, 41] });
-L.Marker.prototype.options.icon = DefaultIcon;
+import 'leaflet/dist/leaflet.css';
+import './AddUMKM.css';
+
+const DEFAULT_POSITION = [-4.01, 119.62];
+
+const FOOD_TYPE_OPTIONS = [
+    'Makanan berat',
+    'Snacks & Dessert',
+    'Drink',
+];
+
+const PRICE_OPTIONS = [
+    'Rp5.000 - Rp10.000',
+    'Rp10.000 - Rp20.000',
+    'Rp20.000 - Rp35.000',
+    'Rp35.000+',
+];
+
+const OPERATING_HOUR_OPTIONS = [
+    '07.00 - 15.00',
+    '08.00 - 17.00',
+    '09.00 - 21.00',
+    '10.00 - 22.00',
+    '24 jam',
+];
+
+const MAX_DETAIL_PHOTOS = 7;
+
+const defaultFormData = {
+    nama_umkm: '',
+    jenis_makanan: '',
+    harga_range: '',
+    jam_operasional: '',
+    alamat_teks: '',
+    deskripsi: '',
+    latitude: DEFAULT_POSITION[0],
+    longitude: DEFAULT_POSITION[1],
+};
+
+const defaultIcon = L.icon({
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+});
+
+L.Marker.prototype.options.icon = defaultIcon;
 
 const AddUMKM = () => {
     const navigate = useNavigate();
+    const isLoggedIn = Boolean(localStorage.getItem('token'));
     const [image, setImage] = useState(null);
     const [preview, setPreview] = useState(null);
-    const [position, setPosition] = useState([-4.01, 119.62]);
-    const [formData, setFormData] = useState({
-        nama_umkm: '',
-        jenis_makanan: '',
-        harga_range: '',
-        alamat_teks: '',
-        deskripsi: '',
-        latitude: -4.01,
-        longitude: 119.62
-    });
+    const [position, setPosition] = useState(DEFAULT_POSITION);
+    const [addressStatus, setAddressStatus] = useState('Titik awal berada di area kampus.');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formData, setFormData] = useState(defaultFormData);
+    const [detailPhotos, setDetailPhotos] = useState([]);
+    const [selectedDetailPhotoId, setSelectedDetailPhotoId] = useState(null);
+    const detailPhotosRef = useRef([]);
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImage(file);
-            setPreview(URL.createObjectURL(file));
+    useEffect(() => (
+        () => {
+            if (preview) URL.revokeObjectURL(preview);
+        }
+    ), [preview]);
+
+    useEffect(() => {
+        detailPhotosRef.current = detailPhotos;
+    }, [detailPhotos]);
+
+    useEffect(() => (
+        () => {
+            detailPhotosRef.current.forEach((photo) => {
+                if (photo?.preview) URL.revokeObjectURL(photo.preview);
+            });
+        }
+    ), []);
+
+    const detailPhotoCount = detailPhotos.length;
+    const selectedDetailPhotoIndex = detailPhotos.findIndex((photo) => photo.id === selectedDetailPhotoId);
+    const selectedDetailPhoto = selectedDetailPhotoIndex >= 0 ? detailPhotos[selectedDetailPhotoIndex] : null;
+
+    useEffect(() => {
+        if (!selectedDetailPhotoId) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setSelectedDetailPhotoId(null);
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [selectedDetailPhotoId]);
+
+    const completion = useMemo(() => {
+        const values = [
+            image,
+            formData.nama_umkm,
+            formData.jenis_makanan,
+            formData.harga_range,
+            formData.jam_operasional,
+            formData.alamat_teks,
+            formData.deskripsi,
+            detailPhotoCount > 0,
+        ];
+        const filled = values.filter((value) => (
+            typeof value === 'string' ? value.trim() : Boolean(value)
+        )).length;
+
+        return {
+            filled,
+            percentage: Math.round((filled / values.length) * 100),
+            total: values.length,
+        };
+    }, [detailPhotoCount, formData, image]);
+
+    const coordinateLabel = `${Number(formData.latitude).toFixed(5)}, ${Number(formData.longitude).toFixed(5)}`;
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            setImage(null);
+            setPreview(null);
+            return;
+        }
+
+        setImage(file);
+        setPreview(URL.createObjectURL(file));
+    };
+
+    const handleDetailPhotoChange = (event) => {
+        const selectedFiles = Array.from(event.target.files || [])
+            .filter((file) => file.type.startsWith('image/'));
+
+        if (selectedFiles.length === 0) {
+            event.target.value = '';
+            return;
+        }
+
+        setDetailPhotos((current) => {
+            const remainingSlots = Math.max(MAX_DETAIL_PHOTOS - current.length, 0);
+            const nextFiles = selectedFiles.slice(0, remainingSlots).map((file, index) => ({
+                id: `${Date.now()}-${index}-${file.name}`,
+                file,
+                preview: URL.createObjectURL(file),
+            }));
+
+            return [...current, ...nextFiles];
+        });
+        event.target.value = '';
+    };
+
+    const handleRemoveDetailPhoto = (id) => {
+        if (id === selectedDetailPhotoId) setSelectedDetailPhotoId(null);
+
+        setDetailPhotos((current) => {
+            const photo = current.find((item) => item.id === id);
+            if (photo?.preview) URL.revokeObjectURL(photo.preview);
+            return current.filter((item) => item.id !== id);
+        });
+    };
+
+    const handleChange = (field) => (event) => {
+        setFormData((current) => ({ ...current, [field]: event.target.value }));
+    };
+
+    const handleLocationPick = async ({ lat, lng }) => {
+        setPosition([lat, lng]);
+        setAddressStatus('Mencari alamat dari titik yang dipilih...');
+        setFormData((current) => ({
+            ...current,
+            latitude: lat,
+            longitude: lng,
+        }));
+
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            if (!response.ok) throw new Error('Reverse geocode gagal');
+
+            const data = await response.json();
+            setFormData((current) => ({
+                ...current,
+                alamat_teks: data.display_name || current.alamat_teks,
+            }));
+            setAddressStatus(data.display_name ? 'Alamat otomatis diperbarui.' : 'Titik dipilih, alamat bisa ditulis manual.');
+        } catch {
+            setAddressStatus('Titik dipilih, alamat bisa ditulis manual.');
         }
     };
-    const handleChange = (field) => (e) => {
-        const value = e.target.value;
-        setFormData(prev => ({ ...prev, [field]: value }));
-    };
 
-    // Komponen Klik Map
-    const LocationMarker = () => {
-        useMapEvents({
-            async click(e) {
-                const { lat, lng } = e.latlng;
-                setPosition([lat, lng]);
-                setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+    const handleSubmit = async (event) => {
+        event.preventDefault();
 
-                try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                    const data = await res.json();
+        if (!image) {
+            alert('Gambar wajib diisi!');
+            return;
+        }
 
-                    setFormData(prev => ({ ...prev, alamat_teks: data.display_name || '' }));
-                } catch (err) {
-                    console.error("Gagal ambil alamat", err);
-                }
-            },
-        });
-        return <Marker position={position} />;
-    };
+        if (!formData.nama_umkm.trim()) {
+            alert('Nama UMKM wajib diisi!');
+            return;
+        }
 
-    const handleSubmit = async () => {
-
-        console.log('=== SUBMIT DEBUG ===');
-        console.log('formData:', formData);
-        console.log('image:', image);
-
-        if (!image) return alert("Gambar wajib diisi!");
-        if (!formData.nama_umkm.trim()) return alert("Nama UMKM wajib diisi!");
+        if (!formData.jenis_makanan.trim()) {
+            alert('Jenis makanan wajib dipilih!');
+            return;
+        }
 
         const data = new FormData();
         data.append('image', image);
-        data.append('nama_umkm', formData.nama_umkm);
-        data.append('jenis_makanan', formData.jenis_makanan);
-        data.append('harga_range', formData.harga_range);
-        data.append('alamat_teks', formData.alamat_teks);
-        data.append('deskripsi', formData.deskripsi);
+        data.append('nama_umkm', formData.nama_umkm.trim());
+        data.append('jenis_makanan', formData.jenis_makanan.trim());
+        data.append('harga_range', formData.harga_range.trim());
+        data.append('jam_operasional', formData.jam_operasional.trim());
+        data.append('alamat_teks', formData.alamat_teks.trim());
+        data.append('deskripsi', formData.deskripsi.trim());
         data.append('latitude', formData.latitude);
         data.append('longitude', formData.longitude);
+        detailPhotos.forEach((photo) => {
+            if (photo?.file) data.append('detail_images', photo.file);
+        });
 
-        console.log('=== FORM DATA ENTRIES ===');
-        for (let [key, value] of data.entries()) {
-            console.log(key, ':', value);
-        }
-
+        setIsSubmitting(true);
         try {
             await apiClient.post('/umkm', data);
-            alert('UMKM Berhasil Ditambahkan!');
+            window.dispatchEvent(new Event('umkm-updated'));
+            alert('UMKM berhasil ditambahkan!');
             navigate('/');
         } catch (err) {
-            console.error('Error submit:', err);
-            alert(err.response?.data?.message || 'Gagal Menambahkan UMKM');
+            alert(err.response?.data?.message || 'Gagal menambahkan UMKM');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <div style={ui.page}>
-            <nav style={ui.navbar}>
-                <div style={ui.navLinks}>
-                    <button onClick={() => navigate('/')} style={ui.navBtn}>BERANDA</button>
-                    <button style={ui.navBtn}>FEED</button>
-                    <button style={ui.activeBtn}>TAMBAHKAN UMKM</button>
-                </div>
-            </nav>
+        <main className="add-page">
+            <AppNavbar
+                active="tambah"
+                isLoggedIn={isLoggedIn}
+                showWorkspaceLinks
+            />
 
-            <div style={ui.container}>
-                <h1 style={ui.mainTitle}>TAMBAHKAN UMKM</h1>
-
-                {/* UPLOAD SECTION */}
-                <div style={ui.uploadSection}>
-                    <label style={ui.uploadBox}>
-                        {preview
-                            ? <img src={preview} style={ui.previewImg} alt="preview" />
-                            : <p>UPLOAD GAMBAR</p>
-                        }
-                        <input type="file" accept="image/*" hidden onChange={handleFileChange} />
-                    </label>
+            <header className="add-hero">
+                <div className="add-hero-copy">
+                    <span className="add-kicker">Tambah rekomendasi baru</span>
+                    <h1>Tambah UMKM</h1>
+                    <p>
+                        Lengkapi data tempat makan favorit supaya tampil jelas di feed rekomendasi kampus.
+                    </p>
                 </div>
 
-                {/* FORM SECTION */}
-                <div style={ui.formWrapper}>
-                    <h2 style={ui.formTitle}>ISI INFORMASI UMKM</h2>
-                    <div style={ui.formBorder}>
-                        <div style={ui.inputGroup}>
-                            <label>NAMA :</label>
-                            <input
-                                style={ui.input}
-                                value={formData.nama_umkm}
-                                onChange={handleChange('nama_umkm')}
-                            />
+                <div className="add-progress-card" aria-label="Kelengkapan data">
+                    <span>Progress data</span>
+                    <strong>{completion.percentage}% lengkap</strong>
+                    <small>{completion.filled}/{completion.total} bagian sudah terisi</small>
+                    <div className="add-progress-track">
+                        <span style={{ width: `${completion.percentage}%` }} />
+                    </div>
+                </div>
+            </header>
+
+            <div className="add-step-row" aria-label="Urutan pengisian data">
+                <StepCard number="01" title="Informasi" description="Nama, jenis, harga, jam buka" />
+                <StepCard number="02" title="Foto" description="Foto utama, menu, tempat, makanan" />
+                <StepCard number="03" title="Lokasi" description="Alamat dan titik peta UMKM" />
+            </div>
+
+            <form className="add-layout" onSubmit={handleSubmit}>
+                <div className="add-main-column">
+                    <section className="add-panel add-form-panel">
+                        <SectionTitle
+                            number="01"
+                            title="Informasi UMKM"
+                            description="Nama, kategori, kisaran harga, jam operasional, dan cerita singkat tempatnya."
+                        />
+
+                        <div className="add-field-grid">
+                            <Field label="Nama UMKM" required>
+                                <input
+                                    value={formData.nama_umkm}
+                                    onChange={handleChange('nama_umkm')}
+                                    placeholder="Contoh: Warung Nasi Ibu Rina"
+                                    required
+                                />
+                            </Field>
+
+                            <Field label="Jenis makanan" required>
+                                <CategoryDropdown
+                                    value={formData.jenis_makanan}
+                                    options={FOOD_TYPE_OPTIONS}
+                                    placeholder="Pilih kategori"
+                                    onChange={(value) => setFormData((current) => ({ ...current, jenis_makanan: value }))}
+                                />
+                            </Field>
+
+                            <div className="add-chip-field">
+                                <span>Pilihan cepat</span>
+                                <div className="add-chip-list">
+                                    {FOOD_TYPE_OPTIONS.map((option) => (
+                                        <button
+                                            key={option}
+                                            className={formData.jenis_makanan === option ? 'is-selected' : ''}
+                                            type="button"
+                                            onClick={() => setFormData((current) => ({ ...current, jenis_makanan: option }))}
+                                        >
+                                            {option}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <Field label="Kisaran harga">
+                                <input
+                                    list="price-range-options"
+                                    value={formData.harga_range}
+                                    onChange={handleChange('harga_range')}
+                                    placeholder="Pilih atau tulis harga sendiri"
+                                />
+                                <datalist id="price-range-options">
+                                    {PRICE_OPTIONS.map((option) => (
+                                        <option key={option} value={option} />
+                                    ))}
+                                </datalist>
+                            </Field>
+
+                            <Field label="Jam operasional">
+                                <input
+                                    list="operating-hour-options"
+                                    value={formData.jam_operasional}
+                                    onChange={handleChange('jam_operasional')}
+                                    placeholder="Contoh: 08.00 - 21.00"
+                                />
+                                <datalist id="operating-hour-options">
+                                    {OPERATING_HOUR_OPTIONS.map((option) => (
+                                        <option key={option} value={option} />
+                                    ))}
+                                </datalist>
+                            </Field>
+
+                            <Field label="Deskripsi singkat" wide>
+                                <textarea
+                                    value={formData.deskripsi}
+                                    onChange={handleChange('deskripsi')}
+                                    placeholder="Ceritakan menu andalan, suasana, atau alasan tempat ini direkomendasikan."
+                                    rows="5"
+                                />
+                            </Field>
                         </div>
-                        <div style={ui.inputGroup}>
-                            <label>JENIS :</label>
-                            <input
-                                style={ui.input}
-                                value={formData.jenis_makanan}
-                                onChange={handleChange('jenis_makanan')}
-                            />
-                        </div>
-                        <div style={ui.inputGroup}>
-                            <label>HARGA :</label>
-                            <input
-                                style={ui.input}
-                                value={formData.harga_range}
-                                onChange={handleChange('harga_range')}
-                            />
-                        </div>
-                        <div style={ui.inputGroup}>
-                            <label>DESKRIPSI :</label>
-                            <input
-                                style={ui.input}
-                                value={formData.deskripsi}
-                                onChange={handleChange('deskripsi')}
-                            />
-                        </div>
-                        <div style={ui.inputGroup}>
-                            <label>LOKASI UMKM :</label>
-                            <input
-                                style={ui.input}
-                                value={formData.alamat_teks}
-                                onChange={handleChange('alamat_teks')}
-                            />
+                    </section>
+
+                    <section className="add-panel add-location-panel">
+                        <SectionTitle
+                            number="03"
+                            title="Lokasi UMKM"
+                            description="Pilih titik di peta, lalu rapikan alamat jika perlu."
+                        />
+
+                        <div className="add-location-grid">
+                            <Field label="Alamat lengkap" required>
+                                <input
+                                    value={formData.alamat_teks}
+                                    onChange={handleChange('alamat_teks')}
+                                    placeholder="Masukkan alamat atau pilih titik pada peta"
+                                    required
+                                />
+                            </Field>
+
+                            <div className="add-location-note">
+                                <span>Titik peta</span>
+                                <strong>{coordinateLabel}</strong>
+                            </div>
                         </div>
 
-                        {/* MAP AREA */}
-                        <div style={ui.mapContainer}>
-                            <MapContainer center={position} zoom={13} style={{ height: '100%', width: '100%' }}>
+                        <div className="add-map-shell">
+                            <MapContainer center={position} zoom={13} className="add-map">
                                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                <LocationMarker />
+                                <LocationMarker position={position} onLocationPick={handleLocationPick} />
                             </MapContainer>
                         </div>
 
-                        <div style={ui.rowBtns}>
-                            <button style={ui.smallGreen}>Konfirmasi alamat</button>
-                            <button style={ui.smallRed} onClick={() => navigate('/')}>Batal</button>
+                        <div className="add-location-meta" aria-live="polite">
+                            <span>{addressStatus}</span>
+                            <strong>{coordinateLabel}</strong>
                         </div>
+                    </section>
+
+                    <div className="add-action-bar">
+                        <button className="add-secondary-button" type="button" onClick={() => navigate('/')}>
+                            <span className="add-cancel-icon" aria-hidden="true" />
+                            <span>Batal</span>
+                        </button>
+                        <button className="add-primary-button" type="submit" disabled={isSubmitting}>
+                            <span className="add-submit-icon" aria-hidden="true" />
+                            <span>{isSubmitting ? 'Menyimpan...' : 'Simpan UMKM'}</span>
+                        </button>
                     </div>
                 </div>
 
-                {/* FINAL BUTTONS */}
-                <div style={ui.finalRow}>
-                    <button style={ui.bigGreen} onClick={handleSubmit}>Konfirmasi</button>
-                    <button style={ui.bigRed} onClick={() => navigate('/')}>Batal</button>
+                <aside className="add-sidebar">
+                    <section className="add-panel add-upload-panel">
+                        <SectionTitle
+                            number="02"
+                            title="Foto utama"
+                            description="Pakai foto makanan, etalase, atau tampilan depan UMKM."
+                        />
+
+                        <label className={preview ? 'add-upload is-filled' : 'add-upload'}>
+                            {preview ? (
+                                <>
+                                    <img src={preview} alt="Preview UMKM" />
+                                    <span className="add-upload-change">Ganti foto</span>
+                                </>
+                            ) : (
+                                <span className="add-upload-empty">
+                                    <span className="add-upload-icon" aria-hidden="true" />
+                                    <strong>Pilih gambar</strong>
+                                    <small>JPG atau PNG</small>
+                                </span>
+                            )}
+                            <input type="file" accept="image/*" hidden onChange={handleFileChange} />
+                        </label>
+                    </section>
+
+                    <section className="add-panel add-detail-photo-panel">
+                        <SectionTitle
+                            number="02"
+                            title="Foto detail"
+                            description="Tambahkan menu, makanan, etalase, atau suasana tempat dari satu input."
+                        />
+
+                        <label className={detailPhotoCount >= MAX_DETAIL_PHOTOS ? 'add-detail-upload is-disabled' : 'add-detail-upload'}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                hidden
+                                disabled={detailPhotoCount >= MAX_DETAIL_PHOTOS}
+                                onChange={handleDetailPhotoChange}
+                            />
+                            <span className="add-detail-upload-icon" aria-hidden="true" />
+                            <span>
+                                <strong>{detailPhotoCount >= MAX_DETAIL_PHOTOS ? 'Galeri sudah penuh' : 'Tambah foto detail'}</strong>
+                                <small>Pilih beberapa gambar sekaligus atau tambahkan bertahap.</small>
+                            </span>
+                        </label>
+
+                        <div className={detailPhotoCount > 0 ? 'add-detail-photo-grid' : 'add-detail-photo-grid is-empty'}>
+                            {detailPhotoCount > 0 ? detailPhotos.map((photo, index) => (
+                                <figure className="add-detail-photo-card" key={photo.id}>
+                                    <button
+                                        className="add-detail-photo-preview-button"
+                                        type="button"
+                                        aria-label={`Lihat foto detail ${index + 1}`}
+                                        onClick={() => setSelectedDetailPhotoId(photo.id)}
+                                    >
+                                        <img src={photo.preview} alt={`Detail UMKM ${index + 1}`} />
+                                        <span aria-hidden="true" />
+                                    </button>
+                                    <figcaption>
+                                        <span>Foto {index + 1}</span>
+                                        <button type="button" onClick={() => handleRemoveDetailPhoto(photo.id)}>
+                                            Hapus
+                                        </button>
+                                    </figcaption>
+                                </figure>
+                            )) : (
+                                <div className="add-detail-empty-card">
+                                    <strong>Belum ada foto detail</strong>
+                                    <span>Galeri kecil akan muncul di sini setelah gambar dipilih.</span>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    <section className="add-panel add-preview-panel" aria-label="Preview kartu UMKM">
+                        <span className="add-preview-label">Preview kartu</span>
+                        <div className="add-preview-image">
+                            {preview ? <img src={preview} alt="" /> : <span />}
+                        </div>
+                        <div className="add-preview-copy">
+                            <span>{formData.jenis_makanan || 'Kuliner'}</span>
+                            <strong>{formData.nama_umkm || 'Nama UMKM'}</strong>
+                            <div className="add-preview-meta">
+                                <small>{formData.harga_range || 'Harga belum diatur'}</small>
+                                <small>{formData.jam_operasional || 'Jam belum diatur'}</small>
+                            </div>
+                            <p>{formData.alamat_teks || formData.deskripsi || 'Alamat atau deskripsi akan tampil di sini.'}</p>
+                        </div>
+                    </section>
+                </aside>
+            </form>
+
+            {selectedDetailPhoto && (
+                <div
+                    className="add-photo-lightbox"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Preview foto detail ${selectedDetailPhotoIndex + 1}`}
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) setSelectedDetailPhotoId(null);
+                    }}
+                >
+                    <div className="add-photo-lightbox-card">
+                        <button
+                            className="add-photo-lightbox-close"
+                            type="button"
+                            aria-label="Tutup preview foto"
+                            onClick={() => setSelectedDetailPhotoId(null)}
+                        />
+                        <img src={selectedDetailPhoto.preview} alt={`Preview foto detail ${selectedDetailPhotoIndex + 1}`} />
+                        <div className="add-photo-lightbox-meta">
+                            <span>Foto detail</span>
+                            <strong>{selectedDetailPhotoIndex + 1} dari {detailPhotoCount}</strong>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+        </main>
+    );
+};
+
+const SectionTitle = ({ number, title, description }) => (
+    <div className="add-section-title">
+        <span>{number}</span>
+        <div>
+            <h2>{title}</h2>
+            <p>{description}</p>
+        </div>
+    </div>
+);
+
+const StepCard = ({ number, title, description }) => (
+    <div className="add-step-card">
+        <span>{number}</span>
+        <strong>{title}</strong>
+        <small>{description}</small>
+    </div>
+);
+
+const Field = ({ label, children, required = false, wide = false }) => (
+    <label className={wide ? 'add-field is-wide' : 'add-field'}>
+        <span>
+            {label}
+            {required && <small>*</small>}
+        </span>
+        {children}
+    </label>
+);
+
+const CategoryDropdown = ({ value, options, placeholder, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        const handlePointerDown = (event) => {
+            if (!dropdownRef.current?.contains(event.target)) setIsOpen(false);
+        };
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setIsOpen(false);
+        };
+
+        window.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('pointerdown', handlePointerDown);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen]);
+
+    return (
+        <div className={isOpen ? 'add-category-dropdown is-open' : 'add-category-dropdown'} ref={dropdownRef}>
+            <button
+                className="add-category-trigger"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((current) => !current)}
+            >
+                <span className={value ? '' : 'is-placeholder'}>{value || placeholder}</span>
+                <i aria-hidden="true" />
+            </button>
+
+            {isOpen && (
+                <div className="add-category-menu" role="listbox">
+                    {options.map((option) => (
+                        <button
+                            className={value === option ? 'add-category-option is-selected' : 'add-category-option'}
+                            type="button"
+                            role="option"
+                            aria-selected={value === option}
+                            key={option}
+                            onClick={() => {
+                                onChange(option);
+                                setIsOpen(false);
+                            }}
+                        >
+                            {option}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
 
-const ui = {
-    page: { backgroundColor: '#fff', minHeight: '100vh', color: '#000', paddingBottom: '50px' },
-    navbar: { display: 'flex', justifyContent: 'center', padding: '20px', borderBottom: '1px solid #eee' },
-    navLinks: { display: 'flex', gap: '30px' },
-    navBtn: { background: 'none', border: 'none', fontWeight: '600', cursor: 'pointer', color: '#666' },
-    activeBtn: { background: 'none', border: 'none', fontWeight: '700', borderBottom: '2px solid #000', cursor: 'pointer' },
-    container: { maxWidth: '1000px', margin: '40px auto', padding: '0 20px' },
-    mainTitle: { fontSize: '42px', fontWeight: '900', marginBottom: '30px' },
-    uploadSection: { border: '1px solid #ddd', padding: '50px', display: 'flex', justifyContent: 'center', marginBottom: '40px' },
-    uploadBox: { width: '220px', height: '220px', border: '1px solid #ccc', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', textAlign: 'center', fontSize: '12px' },
-    previewImg: { width: '100%', height: '100%', objectFit: 'cover' },
-    formWrapper: { marginTop: '20px' },
-    formTitle: { fontSize: '20px', fontWeight: '800', marginBottom: '15px' },
-    formBorder: { border: '1px solid #ddd', padding: '25px' },
-    inputGroup: { display: 'flex', alignItems: 'center', marginBottom: '12px', gap: '15px' },
-    input: { flex: 1, padding: '8px', border: '1px solid #ccc', outline: 'none' },
-    mapContainer: { height: '250px', width: '100%', marginTop: '15px', border: '1px solid #ddd' },
-    rowBtns: { display: 'flex', gap: '10px', marginTop: '15px' },
-    smallGreen: { backgroundColor: '#7CFC00', border: 'none', padding: '8px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' },
-    smallRed: { backgroundColor: '#FF0000', border: 'none', color: '#fff', padding: '8px 20px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' },
-    finalRow: { display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '40px' },
-    bigGreen: { backgroundColor: '#7CFC00', border: 'none', padding: '10px 50px', borderRadius: '25px', fontWeight: 'bold', cursor: 'pointer' },
-    bigRed: { backgroundColor: '#FF0000', border: 'none', color: '#fff', padding: '10px 50px', borderRadius: '25px', fontWeight: 'bold', cursor: 'pointer' }
+const LocationMarker = ({ position, onLocationPick }) => {
+    useMapEvents({
+        click(event) {
+            onLocationPick(event.latlng);
+        },
+    });
+
+    return <Marker position={position} />;
 };
 
 export default AddUMKM;
