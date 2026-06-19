@@ -11,10 +11,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import { getUploadUrl } from '../config/api';
 import './CategoryFeed.css';
 import './SavedUMKM.css';
-
-const BASE_URL = 'http://localhost:5000';
 
 const getReviews = (item) => (Array.isArray(item?.reviews) ? item.reviews : []);
 
@@ -29,15 +28,15 @@ const formatRating = (value) => Number(value || 0).toFixed(1);
 
 const getImagePath = (item) => (
     item?.image
-        ? `${BASE_URL}/uploads/${item.image}`
+        ? getUploadUrl(item.image)
         : 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=900&auto=format&fit=crop'
 );
 
-const getShortText = (value, fallback, maxLength = 128) => {
+const getTextPreview = (value, fallback, maxLength = 118) => {
     const text = String(value || '').trim();
-    if (!text) return fallback;
-    if (text.length <= maxLength) return text;
-    return `${text.slice(0, maxLength).trim()}...`;
+    if (!text) return { text: fallback, isTruncated: false };
+    if (text.length <= maxLength) return { text, isTruncated: false };
+    return { text: `${text.slice(0, maxLength).trim()}...`, isTruncated: true };
 };
 
 const SavedUMKM = () => {
@@ -181,22 +180,34 @@ const SavedStat = ({ icon: Icon, value, label }) => (
 const SavedCard = ({ item, navigate, onRemove }) => {
     const reviews = getReviews(item);
     const rating = formatRating(getAverageRating(item));
-    const summary = getShortText(
+    const summary = getTextPreview(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Detail UMKM belum lengkap.'
     );
+    const address = getTextPreview(item.alamat_teks, 'Alamat belum ditambahkan', 72);
+    const openDetail = (event) => {
+        event.stopPropagation();
+        navigate(`/umkm/${item.id}`);
+    };
 
     return (
-        <article className="saved-card" onClick={() => navigate(`/umkm/${item.id}`)}>
-            <div className="saved-card-image">
+        <article className="category-umkm-card saved-umkm-card" onClick={() => navigate(`/umkm/${item.id}`)}>
+            <div className="category-umkm-image saved-card-image">
                 <img src={getImagePath(item)} alt={item.nama_umkm} />
                 <span>{item.jenis_makanan || 'Kuliner'}</span>
             </div>
 
-            <div className="saved-card-body">
+            <div className="category-umkm-body saved-card-body">
                 <div>
                     <h2>{item.nama_umkm}</h2>
-                    <p>{summary}</p>
+                    <div className="category-card-summary">
+                        <p>{summary.text}</p>
+                        {summary.isTruncated && (
+                            <button type="button" className="category-inline-more" onClick={openDetail}>
+                                Buka detail
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="category-umkm-meta">
@@ -218,18 +229,15 @@ const SavedCard = ({ item, navigate, onRemove }) => {
                     </span>
                 </div>
 
-                <div className="saved-card-footer">
+                <div className="category-umkm-footer saved-card-footer">
                     <span>
                         <MapPin aria-hidden="true" />
-                        {item.alamat_teks || 'Alamat belum ditambahkan'}
+                        <span>{address.text}</span>
                     </span>
                     <div>
                         <button
                             type="button"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                navigate(`/umkm/${item.id}`);
-                            }}
+                            onClick={openDetail}
                         >
                             Buka detail
                         </button>

@@ -167,8 +167,8 @@ body:has(.category-page) #root {
   display: grid;
   grid-template-columns: minmax(236px, 278px) minmax(0, 1fr);
   align-items: start;
-  gap: 16px;
-  width: min(1560px, calc(100% - clamp(24px, 4vw, 72px)));
+  gap: 18px;
+  width: min(1600px, calc(100% - clamp(22px, 3.2vw, 58px)));
   margin: 0 auto;
   padding: 22px 0 30px;
 }
@@ -251,9 +251,7 @@ body:has(.category-page) #root {
 
 .category-side-list strong,
 .category-side-list small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .category-side-list strong {
@@ -275,7 +273,10 @@ body:has(.category-page) #root {
 
 .category-list-panel {
   min-width: 0;
-  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
 }
 
 .category-list-head {
@@ -283,7 +284,10 @@ body:has(.category-page) #root {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 12px;
+  flex: 0 0 auto;
+  margin: 0;
+  border-bottom: 1px solid rgba(24, 23, 20, 0.08);
+  padding-bottom: 14px;
 }
 
 .category-list-head span,
@@ -358,28 +362,50 @@ body:has(.category-page) #root {
 
 .category-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  max-height: min(760px, calc(100svh - 158px));
+  margin-top: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 7px 4px 0;
+  scrollbar-color: rgba(31, 63, 47, 0.24) transparent;
+  scrollbar-width: thin;
+}
+
+.category-card-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.category-card-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.category-card-grid::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(31, 63, 47, 0.26);
+  background-clip: padding-box;
 }
 
 .category-umkm-card {
   display: grid;
   grid-template-columns: 1fr;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 418px;
   overflow: hidden;
   border: 1px solid rgba(24, 23, 20, 0.08);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, #fff 0%, #fff 66%, #fbf7ef 100%);
+  background: #fff;
   cursor: pointer;
-  box-shadow: 0 12px 28px rgba(35, 34, 29, 0.065);
+  box-shadow: 0 14px 30px rgba(35, 34, 29, 0.07);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
 .category-umkm-card:hover {
   border-color: rgba(31, 63, 47, 0.24);
-  box-shadow: 0 18px 34px rgba(35, 34, 29, 0.1);
+  box-shadow: 0 20px 40px rgba(35, 34, 29, 0.11);
   transform: translateY(-2px);
 }
 
@@ -418,66 +444,85 @@ body:has(.category-page) #root {
   left: 9px;
   bottom: 9px;
   z-index: 1;
+  width: fit-content;
   max-width: calc(100% - 18px);
-  overflow: hidden;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   color: #1f3f2f;
   font-size: 11px;
   font-weight: 900;
+  line-height: 1.2;
   padding: 5px 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .category-umkm-body {
   display: grid;
-  align-content: start;
-  gap: 8px;
-  padding: 11px;
+  grid-template-rows: auto auto auto minmax(0, auto);
+  align-content: stretch;
+  gap: 10px;
+  min-height: 0;
+  padding: 13px;
 }
 
 .category-umkm-body h2 {
   margin: 0;
   color: #181714;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 950;
   line-height: 1.22;
   overflow-wrap: anywhere;
 }
 
-.category-umkm-body p {
-  display: -webkit-box;
-  min-height: 38px;
+.category-card-summary {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.category-card-summary p {
+  min-height: 40px;
   margin: 0;
-  overflow: hidden;
   color: #756f64;
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1.45;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.category-inline-more {
+  justify-self: start;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(239, 184, 79, 0.16);
+  color: #8a5a00;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 950;
+  line-height: 1;
+  padding: 6px 9px;
 }
 
 .category-umkm-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .category-umkm-meta span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
   max-width: 100%;
-  overflow: hidden;
   border-radius: 999px;
   background: #f4efe5;
   color: #5f574d;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 850;
-  padding: 5px 7px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .category-umkm-meta span:first-child {
@@ -494,24 +539,24 @@ body:has(.category-page) #root {
 
 .category-umkm-footer {
   display: grid;
-  grid-template-columns: 1fr;
-  align-items: stretch;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
   border-top: 1px solid rgba(24, 23, 20, 0.08);
-  padding-top: 8px;
+  padding-top: 10px;
 }
 
 .category-umkm-footer > span {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 5px;
   min-width: 0;
-  overflow: hidden;
   color: #5f574d;
   font-size: 11px;
   font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .category-umkm-footer svg {
@@ -527,13 +572,13 @@ body:has(.category-page) #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  min-height: 36px;
   border: 0;
   border-radius: 8px;
   background: #1f3f2f;
   color: #fff;
   cursor: pointer;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 900;
   padding: 8px 11px;
 }
@@ -596,7 +641,8 @@ body:has(.category-page) #root {
   }
 
   .category-card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: min(700px, calc(100svh - 150px));
   }
 }
 
@@ -657,11 +703,15 @@ body:has(.category-page) #root {
   }
 
   .category-card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    grid-template-columns: 1fr;
+    max-height: none;
+    overflow-y: visible;
+    padding-right: 4px;
   }
 
   .category-umkm-card {
     grid-template-columns: 1fr;
+    min-height: auto;
   }
 
   .category-umkm-image {
@@ -681,9 +731,8 @@ body:has(.category-page) #root {
     font-size: 16px;
   }
 
-  .category-umkm-body p {
+  .category-card-summary p {
     min-height: 40px;
-    -webkit-line-clamp: 2;
   }
 
   .category-umkm-footer {
@@ -718,8 +767,8 @@ body:has(.category-page) #root {
     min-height: 0;
   }
 
-  .category-umkm-body p {
-    -webkit-line-clamp: 2;
+  .category-card-summary p {
+    min-height: 40px;
   }
 }
 

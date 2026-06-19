@@ -13,11 +13,11 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import { getUploadUrl } from '../config/api';
 import { getSearchQueryLabel, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './CategoryFeed.css';
 import './PopularFeed.css';
 
-const BASE_URL = 'http://localhost:5000';
 const POPULAR_HERO_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1800&auto=format&fit=crop';
 
 const getReviews = (item) => item.reviews || [];
@@ -34,15 +34,15 @@ const formatRating = (value) => Number(value || 0).toFixed(1);
 
 const getImagePath = (item) => (
     item?.image
-        ? `${BASE_URL}/uploads/${item.image}`
+        ? getUploadUrl(item.image)
         : 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=900&auto=format&fit=crop'
 );
 
-const getShortText = (value, fallback, maxLength = 128) => {
+const getTextPreview = (value, fallback, maxLength = 118) => {
     const text = String(value || '').trim();
-    if (!text) return fallback;
-    if (text.length <= maxLength) return text;
-    return `${text.slice(0, maxLength).trim()}...`;
+    if (!text) return { text: fallback, isTruncated: false };
+    if (text.length <= maxLength) return { text, isTruncated: false };
+    return { text: `${text.slice(0, maxLength).trim()}...`, isTruncated: true };
 };
 
 const getCreatedTime = (item) => {
@@ -255,10 +255,15 @@ const CategoryStat = ({ icon: Icon, value, label }) => (
 const PopularUMKMCard = ({ item, navigate }) => {
     const reviews = getReviews(item);
     const rating = formatRating(getAverageRating(item));
-    const summary = getShortText(
+    const summary = getTextPreview(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Detail UMKM belum lengkap.'
     );
+    const address = getTextPreview(item.alamat_teks, 'Alamat belum ditambahkan', 72);
+    const openDetail = (event) => {
+        event.stopPropagation();
+        navigate(`/umkm/${item.id}`);
+    };
 
     return (
         <article className="category-umkm-card popular-umkm-card" onClick={() => navigate(`/umkm/${item.id}`)}>
@@ -269,7 +274,14 @@ const PopularUMKMCard = ({ item, navigate }) => {
 
             <div className="category-umkm-body">
                 <h2>{item.nama_umkm}</h2>
-                <p>{summary}</p>
+                <div className="category-card-summary">
+                    <p>{summary.text}</p>
+                    {summary.isTruncated && (
+                        <button type="button" className="category-inline-more" onClick={openDetail}>
+                            Buka detail
+                        </button>
+                    )}
+                </div>
 
                 <div className="category-umkm-meta">
                     <span>
@@ -293,14 +305,11 @@ const PopularUMKMCard = ({ item, navigate }) => {
                 <div className="category-umkm-footer">
                     <span>
                         <MapPin aria-hidden="true" />
-                        {item.alamat_teks || 'Alamat belum ditambahkan'}
+                        <span>{address.text}</span>
                     </span>
                     <button
                         type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            navigate(`/umkm/${item.id}`);
-                        }}
+                        onClick={openDetail}
                     >
                         Buka detail
                     </button>

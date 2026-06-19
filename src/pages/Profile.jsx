@@ -4,15 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
 import PasswordStrength from '../components/PasswordStrength';
+import { getUploadUrl } from '../config/api';
 import { getPasswordStrength, PASSWORD_RULE_MESSAGE } from '../utils/passwordStrength';
 import './Profile.css';
 
-const API_ROOT = 'http://localhost:5000';
-
 const getProfileImageUrl = (profileImage) => {
     if (!profileImage) return '';
-    if (profileImage.startsWith('http')) return profileImage;
-    return `${API_ROOT}/uploads/${profileImage}`;
+    return getUploadUrl(profileImage);
 };
 
 const Profile = () => {

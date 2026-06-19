@@ -14,7 +14,7 @@ const DEFAULT_POSITION = [-4.01, 119.62];
 const FOOD_TYPE_OPTIONS = [
     'Makanan berat',
     'Snacks & Dessert',
-    'Drink',
+    'Drinks',
 ];
 
 const PRICE_OPTIONS = [
@@ -236,10 +236,10 @@ const AddUMKM = () => {
 
         setIsSubmitting(true);
         try {
-            await apiClient.post('/umkm', data);
+            const response = await apiClient.post('/umkm', data);
             window.dispatchEvent(new Event('umkm-updated'));
-            alert('UMKM berhasil ditambahkan!');
-            navigate('/');
+            alert(response.data?.message || 'UMKM berhasil dikirim dan menunggu verifikasi admin.');
+            navigate('/umkm-saya');
         } catch (err) {
             alert(err.response?.data?.message || 'Gagal menambahkan UMKM');
         } finally {
@@ -399,7 +399,7 @@ const AddUMKM = () => {
                         </div>
                     </section>
 
-                    <div className="add-action-bar">
+                    <div className="add-action-bar add-action-bar--desktop">
                         <button className="add-secondary-button" type="button" onClick={() => navigate('/')}>
                             <span className="add-cancel-icon" aria-hidden="true" />
                             <span>Batal</span>
@@ -503,6 +503,17 @@ const AddUMKM = () => {
                         </div>
                     </section>
                 </aside>
+
+                <div className="add-action-bar add-action-bar--mobile">
+                    <button className="add-secondary-button" type="button" onClick={() => navigate('/')}>
+                        <span className="add-cancel-icon" aria-hidden="true" />
+                        <span>Batal</span>
+                    </button>
+                    <button className="add-primary-button" type="submit" disabled={isSubmitting}>
+                        <span className="add-submit-icon" aria-hidden="true" />
+                        <span>{isSubmitting ? 'Menyimpan...' : 'Simpan UMKM'}</span>
+                    </button>
+                </div>
             </form>
 
             {selectedDetailPhoto && (

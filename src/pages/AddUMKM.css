@@ -7,12 +7,7 @@
   min-height: 100vh;
   margin-left: calc(50% - 50vw);
   overflow-x: hidden;
-  background:
-    linear-gradient(90deg, rgba(31, 63, 47, 0.055), rgba(31, 63, 47, 0.012) 17%, transparent 34%, transparent 66%, rgba(239, 184, 79, 0.035) 84%, rgba(31, 63, 47, 0.05)),
-    linear-gradient(90deg, rgba(31, 63, 47, 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(239, 184, 79, 0.03) 1px, transparent 1px),
-    linear-gradient(180deg, #fbfaf6 0%, #f6f1e8 100%);
-  background-size: auto, 112px 112px, 112px 112px, auto;
+  background: #fbfaf6;
   color: #181714;
   color-scheme: light;
   font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -1052,7 +1047,9 @@ body:has(.add-page) {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: clamp(280px, 21vw, 350px);
+  height: clamp(280px, 21vw, 350px);
+  min-height: 0;
+  max-height: clamp(280px, 21vw, 350px);
   overflow: hidden;
   border: 1px dashed rgba(31, 63, 47, 0.28);
   border-radius: 8px;
@@ -1067,10 +1064,13 @@ body:has(.add-page) {
 }
 
 .add-upload img {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  min-height: clamp(280px, 21vw, 350px);
+  min-height: 0;
+  max-height: 100%;
   object-fit: cover;
 }
 
@@ -1088,10 +1088,13 @@ body:has(.add-page) {
 }
 
 .add-upload-empty {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   gap: 9px;
   color: #756f64;
+  padding: 20px;
   text-align: center;
 }
 
@@ -1160,7 +1163,7 @@ body:has(.add-page) {
   width: 58px;
   height: 10px;
   border-radius: 999px;
-  background: repeating-linear-gradient(90deg, rgba(31, 63, 47, 0.18) 0 8px, transparent 8px 13px);
+  background: rgba(31, 63, 47, 0.16);
   pointer-events: none;
 }
 
@@ -1361,8 +1364,13 @@ body:has(.add-page) {
   padding: 10px;
 }
 
-.add-sidebar .add-action-bar {
-  grid-column: 1 / -1;
+.add-layout > .add-action-bar {
+  grid-column: 1;
+  align-self: start;
+}
+
+.add-action-bar--mobile {
+  display: none;
 }
 
 .add-primary-button,
@@ -1578,9 +1586,13 @@ body:has(.add-page) {
     flex: 1 1 calc(50% - 8px);
   }
 
-  .add-upload,
+  .add-upload {
+    height: 224px;
+    max-height: 224px;
+  }
+
   .add-upload img {
-    min-height: 224px;
+    min-height: 0;
   }
 
   .add-map-shell {
@@ -1593,13 +1605,27 @@ body:has(.add-page) {
   }
 
   .add-action-bar {
-    flex-direction: column-reverse;
+    flex-direction: column;
+    margin-top: 2px;
+  }
+
+  .add-action-bar--desktop {
+    display: none;
+  }
+
+  .add-action-bar--mobile {
+    display: flex;
+    grid-column: 1 / -1;
   }
 
   .add-primary-button,
   .add-secondary-button {
     width: 100%;
     min-height: 46px;
+  }
+
+  .add-primary-button {
+    min-height: 50px;
   }
 }
 

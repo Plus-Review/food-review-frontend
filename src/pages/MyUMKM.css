@@ -1,10 +1,6 @@
 .my-umkm-page {
   overflow-x: hidden;
-  background:
-    linear-gradient(90deg, rgba(31, 63, 47, 0.04) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(239, 184, 79, 0.04) 1px, transparent 1px),
-    #fbfaf6;
-  background-size: 88px 88px, 88px 88px, auto;
+  background: #fbfaf6;
 }
 
 .my-umkm-hero {
@@ -234,6 +230,36 @@
   overflow-wrap: anywhere;
 }
 
+.my-umkm-status {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: rgba(31, 63, 47, 0.08);
+  color: #1f3f2f;
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1;
+  padding: 6px 9px;
+}
+
+.my-umkm-status.is-pending_create,
+.my-umkm-status.is-pending_update {
+  background: #fff4d8;
+  color: #8a5a00;
+}
+
+.my-umkm-status.is-rejected {
+  background: #fff0ed;
+  color: #9a3322;
+}
+
+.my-umkm-status.is-approved {
+  background: #edf7ef;
+  color: #1f3f2f;
+}
+
 .my-umkm-body p {
   display: -webkit-box;
   min-height: 40px;
@@ -353,6 +379,10 @@
 
   .my-umkm-card {
     grid-template-columns: 1fr;
+  }
+
+  .my-umkm-body {
+    padding: 13px;
   }
 
   .my-umkm-image,

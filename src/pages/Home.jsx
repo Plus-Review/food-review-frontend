@@ -1,15 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, Coffee, Compass, Cookie, LocateFixed, LogIn, MapPin, Search, Utensils, X } from 'lucide-react';
+import {
+    ArrowRight,
+    BadgeCheck,
+    BookmarkCheck,
+    ChevronDown,
+    Coffee,
+    Compass,
+    Cookie,
+    LocateFixed,
+    LogIn,
+    MapPin,
+    MessageCircle,
+    Search,
+    Star,
+    Utensils,
+    X,
+} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import cutleryIcon from '../assets/cutlery.png';
 import AppNavbar from '../components/AppNavbar';
+import BrandLogo from '../components/BrandLogo';
+import { getUploadUrl } from '../config/api';
 import { CATEGORY_FEEDS, getCategoryFeedKey } from '../utils/categoryFeeds';
 import { getSearchQueryLabel, getUmkmSearchScore, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './Home.css';
 
-const BASE_URL = 'http://localhost:5000';
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=1600&auto=format&fit=crop';
+const LANDING_HERO_IMAGE = 'https://images.pexels.com/photos/4589511/pexels-photo-4589511.jpeg?auto=compress&cs=tinysrgb&w=1800&h=1000&fit=crop';
+const LANDING_PREVIEW_IMAGE = 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=1200&auto=format&fit=crop';
 const POPULAR_FEED_LIMIT = 5;
 const MY_UMKM_PREVIEW_LIMIT = 1;
 const NEARBY_LIMIT = 2;
@@ -33,9 +52,7 @@ const getAverageRating = (item) => {
 const formatRating = (value) => Number(value || 0).toFixed(1);
 
 const getUploadImageUrl = (image) => (
-    String(image || '').startsWith('http')
-        ? image
-        : `${BASE_URL}/uploads/${image}`
+    getUploadUrl(image)
 );
 
 const normalizeImageList = (images) => {
@@ -322,6 +339,35 @@ const Home = () => {
             ? 'umkm-saya'
             : 'beranda';
 
+    if (!isLoggedIn) {
+        return (
+            <main className="home-page landing-page">
+                {loginNotice && (
+                    <LoginRequiredNotice
+                        notice={loginNotice}
+                        onClose={() => setLoginNotice(null)}
+                        onLogin={() => navigate('/login')}
+                        showAction={false}
+                    />
+                )}
+
+                <GuestLanding
+                    latestItem={latestFeedItem}
+                    stats={{
+                        umkm: umkmList.length,
+                        reviews: totalReviews,
+                        users: platformStats.totalUsers,
+                    }}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    onRequireLogin={showLoginNotice}
+                    onLogin={() => navigate('/login')}
+                    onRegister={() => navigate('/register')}
+                />
+            </main>
+        );
+    }
+
     return (
         <main className="home-page">
             <AppNavbar active={navbarActive} isLoggedIn={isLoggedIn} onFeedClick={handleFeedClick} />
@@ -497,8 +543,8 @@ const StatItem = ({ value, label }) => (
     </div>
 );
 
-const LoginRequiredNotice = ({ notice, onClose, onLogin }) => (
-    <div className="home-login-notice" role="status" aria-live="polite">
+const LoginRequiredNotice = ({ notice, onClose, onLogin, showAction = true }) => (
+    <div className={showAction ? 'home-login-notice' : 'home-login-notice is-simple'} role="status" aria-live="polite">
         <span className="home-login-notice-icon" aria-hidden="true">
             <LogIn size={18} strokeWidth={2.6} />
         </span>
@@ -506,13 +552,295 @@ const LoginRequiredNotice = ({ notice, onClose, onLogin }) => (
             <strong>{notice.title}</strong>
             <span>{notice.message}</span>
         </div>
-        <button className="home-login-notice-action" type="button" onClick={onLogin}>
-            Masuk
-        </button>
+        {showAction && (
+            <button className="home-login-notice-action" type="button" onClick={onLogin}>
+                Masuk
+            </button>
+        )}
         <button className="home-login-notice-close" type="button" aria-label="Tutup notifikasi login" onClick={onClose}>
             <X size={16} strokeWidth={2.6} />
         </button>
     </div>
+);
+
+const GuestLanding = ({
+    latestItem,
+    stats,
+    searchTerm,
+    onSearchChange,
+    onRequireLogin,
+    onLogin,
+    onRegister,
+}) => {
+    const latestName = latestItem?.nama_umkm || 'UMKM kampus pilihan';
+    const latestImage = latestItem ? getImagePath(latestItem) : LANDING_PREVIEW_IMAGE;
+
+    const scrollToPreview = () => {
+        document.getElementById('landing-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const submitLandingSearch = (event) => {
+        event.preventDefault();
+        onRequireLogin('mencari dan membuka rekomendasi UMKM');
+    };
+
+    return (
+        <>
+            <nav className="landing-nav" aria-label="Navigasi landing Plus Review">
+                <button className="landing-brand" type="button" onClick={scrollToPreview}>
+                    <BrandLogo />
+                </button>
+
+                <div className="landing-nav-actions">
+                    <button type="button" onClick={scrollToPreview}>Fitur</button>
+                    <button type="button" onClick={() => onRequireLogin('membuka feed rekomendasi')}>Feed</button>
+                    <button className="landing-nav-login" type="button" onClick={onLogin}>Masuk</button>
+                    <button className="landing-nav-register" type="button" onClick={onRegister}>Daftar</button>
+                </div>
+            </nav>
+
+            <section className="landing-hero" style={{ '--landing-hero-image': `url("${LANDING_HERO_IMAGE}")` }}>
+                <div className="landing-hero-content">
+                    <span className="landing-kicker">Review UMKM kampus yang lebih jujur</span>
+                    <h1>Plus Review</h1>
+                    <p>
+                        Temukan tempat makan, minuman, dan camilan kampus dari review mahasiswa.
+                        Simpan pilihan favorit, lihat foto detail, lalu pilih UMKM yang paling pas sebelum berangkat.
+                    </p>
+
+                    <form className="landing-search" onSubmit={submitLandingSearch}>
+                        <Search aria-hidden="true" />
+                        <input
+                            value={searchTerm}
+                            onChange={(event) => onSearchChange(event.target.value)}
+                            placeholder="Cari makanan berat, snacks, atau drinks"
+                            aria-label="Cari rekomendasi UMKM"
+                        />
+                        <button type="submit">
+                            Cari
+                            <ArrowRight aria-hidden="true" />
+                        </button>
+                    </form>
+
+                    <div className="landing-hero-actions">
+                        <button className="landing-primary" type="button" onClick={onLogin}>
+                            Mulai sekarang
+                            <ArrowRight aria-hidden="true" />
+                        </button>
+                        <button className="landing-secondary" type="button" onClick={onRegister}>
+                            Buat akun
+                        </button>
+                    </div>
+
+                    <div className="landing-stat-row" aria-label="Ringkasan Plus Review">
+                        <LandingStat value={stats.umkm} label="UMKM aktif" />
+                        <LandingStat value={stats.reviews} label="Review masuk" />
+                        <LandingStat value={stats.users} label="Pengguna" />
+                    </div>
+
+                    <div className="landing-hero-strip" aria-label="Sorotan Plus Review">
+                        <LandingHeroPill icon={Utensils} label="Kategori" value="Makanan, snacks, drinks" />
+                        <LandingHeroPill icon={BookmarkCheck} label="Simpan" value="Favorit bisa dibuka lagi" />
+                        <LandingHeroPill icon={MessageCircle} label="Review" value="Rating, komentar, foto" />
+                    </div>
+                </div>
+
+                <div className="landing-hero-note" aria-label="Preview update">
+                    <img src={latestImage} alt="" />
+                    <div>
+                        <span>Update terbaru</span>
+                        <strong>{latestName}</strong>
+                        <small>Login untuk membuka detail, review, dan foto UMKM secara lengkap.</small>
+                    </div>
+                    <div className="landing-note-meter" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                    </div>
+                </div>
+            </section>
+
+            <section className="landing-category-rail" aria-label="Kategori unggulan">
+                <div className="landing-category-track">
+                    {[0, 1].map((groupIndex) => (
+                        <div className="landing-category-loop" key={`category-loop-${groupIndex}`} aria-hidden={groupIndex === 1}>
+                            {CATEGORY_FEEDS.map((category) => {
+                                const CategoryIcon = CATEGORY_ICONS[category.key] || Utensils;
+
+                                return (
+                                    <button
+                                        key={`${category.key}-${groupIndex}`}
+                                        type="button"
+                                        tabIndex={groupIndex === 1 ? -1 : 0}
+                                        onClick={() => onRequireLogin(`membuka kategori ${category.label}`)}
+                                    >
+                                        <span className="landing-category-image">
+                                            <img src={category.imageUrl} alt="" referrerPolicy="no-referrer" />
+                                        </span>
+                                            <span className="landing-category-copy">
+                                                <strong>{category.label}</strong>
+                                                <small>{category.caption}</small>
+                                                <p>{getShortText(category.description, category.caption, 82)}</p>
+                                                <em>Lihat kategori</em>
+                                            </span>
+                                            <span className="landing-category-card-icon" aria-hidden="true">
+                                                <CategoryIcon />
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            <section id="landing-preview" className="landing-section landing-feature-section">
+                <div className="landing-section-head">
+                    <span>Kenapa terasa beda</span>
+                    <h2>Dibuat untuk keputusan makan yang cepat, rapi, dan menyenangkan.</h2>
+                    <p>
+                        User baru langsung paham apa yang bisa dilakukan: cari UMKM, cek bukti review, lalu simpan tempat yang ingin dicoba.
+                    </p>
+                </div>
+
+                <div className="landing-feature-grid">
+                    <LandingFeature
+                        icon={BadgeCheck}
+                        title="Rekomendasi jelas"
+                        text="UMKM dipisah berdasarkan kategori, review, dan update terbaru supaya tidak terasa acak."
+                    />
+                    <LandingFeature
+                        icon={BookmarkCheck}
+                        title="Simpan pilihan"
+                        text="User bisa menandai UMKM yang ingin dicoba nanti setelah login ke akun mereka."
+                    />
+                    <LandingFeature
+                        icon={MessageCircle}
+                        title="Review lebih hidup"
+                        text="Review, rating, dan foto membantu mahasiswa lain memilih tempat yang paling cocok."
+                    />
+                </div>
+            </section>
+
+            <section className="landing-section landing-flow-section">
+                <div className="landing-flow-head">
+                    <span>Alur sederhana</span>
+                    <h2>Dari cari sampai review, semuanya dibuat simpel.</h2>
+                </div>
+
+                <div className="landing-flow-grid">
+                    <LandingStep number="01" icon={Search} title="Cari sesuai mood" text="Ketik menu, lokasi, atau kategori yang kamu mau." />
+                    <LandingStep number="02" icon={Star} title="Cek reputasi" text="Lihat rating, komentar, foto detail, dan jam operasional." />
+                    <LandingStep number="03" icon={BookmarkCheck} title="Simpan dulu" text="Tandai UMKM yang ingin kamu coba saat jam kosong." />
+                    <LandingStep number="04" icon={MessageCircle} title="Bagikan review" text="Bantu mahasiswa lain memilih dengan review yang jelas." />
+                </div>
+            </section>
+
+            <section className="landing-section landing-preview-section">
+                <div className="landing-preview-copy">
+                    <span>Preview pengalaman</span>
+                    <h2>Feed yang terasa seperti katalog kuliner kampus.</h2>
+                    <p>
+                        Setiap UMKM dibuat mudah discan: kategori, kisaran harga, jam operasional,
+                        foto, dan review tampil sebagai informasi utama.
+                    </p>
+                    <button type="button" onClick={() => onRequireLogin('melihat feed dan membuka detail UMKM')}>
+                        Lihat feed setelah login
+                        <ArrowRight aria-hidden="true" />
+                    </button>
+                </div>
+
+                <div className="landing-preview-board" aria-label="Preview tampilan feed">
+                    <article className="landing-preview-card is-large">
+                        <img src={LANDING_PREVIEW_IMAGE} alt="" />
+                        <div className="landing-preview-floating" aria-hidden="true">
+                            <span>5.0</span>
+                            <small>review</small>
+                        </div>
+                        <div>
+                            <span>Pilihan rekomendasi</span>
+                            <strong>Feed Populer</strong>
+                            <small>Restoran dan UMKM dengan rating, review, dan aktivitas terbaik tampil di sini.</small>
+                        </div>
+                    </article>
+
+                    <div className="landing-mini-stack">
+                        <LandingMini icon={Star} title="Rating & review" text="Bantu pilih tempat terbaik." />
+                        <LandingMini icon={MapPin} title="Lokasi UMKM" text="Lebih mudah ditemukan." />
+                        <LandingMini icon={Utensils} title="Kategori jelas" text="Cari sesuai mood makan." />
+                    </div>
+                </div>
+            </section>
+
+            <section className="landing-final-cta">
+                <div>
+                    <span>Siap mulai?</span>
+                    <h2>Masuk dan jelajahi rekomendasi UMKM kampus.</h2>
+                </div>
+                <div>
+                    <button className="landing-primary" type="button" onClick={onLogin}>
+                        Masuk
+                        <ArrowRight aria-hidden="true" />
+                    </button>
+                    <button className="landing-secondary is-dark" type="button" onClick={onRegister}>
+                        Daftar akun
+                    </button>
+                </div>
+            </section>
+        </>
+    );
+};
+
+const LandingStat = ({ value, label }) => (
+    <div className="landing-stat">
+        <strong>{value}</strong>
+        <span>{label}</span>
+    </div>
+);
+
+const LandingHeroPill = ({ icon: Icon, label, value }) => (
+    <div className="landing-hero-pill">
+        <span aria-hidden="true">
+            <Icon />
+        </span>
+        <div>
+            <strong>{label}</strong>
+            <small>{value}</small>
+        </div>
+    </div>
+);
+
+const LandingFeature = ({ icon: Icon, title, text }) => (
+    <article className="landing-feature-card">
+        <span aria-hidden="true">
+            <Icon />
+        </span>
+        <h3>{title}</h3>
+        <p>{text}</p>
+    </article>
+);
+
+const LandingStep = ({ number, icon: Icon, title, text }) => (
+    <article className="landing-step-card">
+        <span className="landing-step-number">{number}</span>
+        <span className="landing-step-icon" aria-hidden="true">
+            <Icon />
+        </span>
+        <h3>{title}</h3>
+        <p>{text}</p>
+    </article>
+);
+
+const LandingMini = ({ icon: Icon, title, text }) => (
+    <article className="landing-mini-card">
+        <span aria-hidden="true">
+            <Icon />
+        </span>
+        <div>
+            <strong>{title}</strong>
+            <small>{text}</small>
+        </div>
+    </article>
 );
 
 const SectionHeader = ({ title, subtitle, action, onAction, eyebrow = 'Direkomendasikan' }) => (
@@ -741,7 +1069,7 @@ const NearbyUMKMFinder = ({ allItems, isLoggedIn, navigate, onRequireLogin }) =>
 
 const LatestFeedCard = ({ item, rating, reviews, summary, navigate }) => {
     const imagePath = getImagePath(item);
-    const detailPhotos = getDetailImagePaths(item, 3);
+    const detailPhotos = getDetailImagePaths(item, 4);
 
     return (
         <article className="home-feed-spotlight home-latest-spotlight" onClick={() => navigate(`/umkm/${item.id}`)}>
@@ -750,16 +1078,30 @@ const LatestFeedCard = ({ item, rating, reviews, summary, navigate }) => {
                 <span>{item.jenis_makanan || 'Kuliner'}</span>
             </div>
 
-            <div className="home-feed-spotlight-body">
-                <span className="home-feed-badge">Terbaru masuk</span>
-                <h3>{item.nama_umkm}</h3>
-                <p>{summary}</p>
+            <div className={`home-feed-spotlight-body ${detailPhotos.length > 0 ? 'has-detail-photos' : 'has-no-detail-photos'}`}>
+                <div className="home-latest-copy">
+                    <span className="home-latest-status">Terbaru masuk</span>
+                    <h3>{item.nama_umkm}</h3>
+                    <p>{summary}</p>
+                </div>
 
                 <div className="home-feed-spotlight-meta">
-                    <span>Rating {rating}</span>
-                    <span>{reviews} review</span>
-                    <span>{item.harga_range || 'Harga belum diatur'}</span>
-                    <span>{item.jam_operasional || 'Jam belum diatur'}</span>
+                    <span>
+                        <small>Rating</small>
+                        <strong>{rating}</strong>
+                    </span>
+                    <span>
+                        <small>Review</small>
+                        <strong>{reviews} Review</strong>
+                    </span>
+                    <span>
+                        <small>Harga</small>
+                        <strong>{item.harga_range || 'Belum diatur'}</strong>
+                    </span>
+                    <span>
+                        <small>Jam operasional</small>
+                        <strong>{item.jam_operasional || 'Belum diatur'}</strong>
+                    </span>
                 </div>
 
                 {detailPhotos.length > 0 && (
@@ -773,16 +1115,18 @@ const LatestFeedCard = ({ item, rating, reviews, summary, navigate }) => {
                     </div>
                 )}
 
-                <button
-                    className="home-feed-detail-button"
-                    type="button"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        navigate(`/umkm/${item.id}`);
-                    }}
-                >
-                    Lihat detail UMKM
-                </button>
+                <div className="home-latest-footer">
+                    <button
+                        className="home-feed-detail-button"
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/umkm/${item.id}`);
+                        }}
+                    >
+                        Lihat detail UMKM
+                    </button>
+                </div>
             </div>
         </article>
     );
@@ -810,7 +1154,9 @@ const FeedOverview = ({ items, categories, totalItems, totalReviews, totalUsers,
         );
     }
 
-    const sideItems = items.slice(0, 2);
+    const latestSideItems = [...items]
+        .sort((a, b) => getCreatedTime(b) - getCreatedTime(a))
+        .slice(0, 1);
 
     return (
         <div className="home-feed-overview home-feed-overview--summary">
@@ -836,10 +1182,10 @@ const FeedOverview = ({ items, categories, totalItems, totalReviews, totalUsers,
                     </div>
                 </div>
 
-                {sideItems.length > 0 && (
+                {latestSideItems.length > 0 && (
                     <div className="home-feed-mini-list">
                         <span>Update terbaru</span>
-                        {sideItems.map((item) => (
+                        {latestSideItems.map((item) => (
                             <button key={item.id} type="button" onClick={() => navigate(`/umkm/${item.id}`)}>
                                 <img src={getImagePath(item)} alt="" />
                                 <span>
@@ -985,7 +1331,7 @@ const UMKMCard = ({ item, navigate }) => {
             </div>
 
             <div className="home-card-body">
-                <div>
+                <div className="home-card-copy">
                     <h3>{item.nama_umkm}</h3>
                     <p>{detailText}</p>
                 </div>

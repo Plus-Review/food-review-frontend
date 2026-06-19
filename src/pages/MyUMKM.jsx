@@ -14,11 +14,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import { getUploadUrl } from '../config/api';
 import { getSearchQueryLabel, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './CategoryFeed.css';
 import './MyUMKM.css';
 
-const BASE_URL = 'http://localhost:5000';
 const MY_UMKM_HERO_IMAGE = 'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?q=80&w=1800&auto=format&fit=crop';
 
 const getCachedUser = () => {
@@ -48,7 +48,7 @@ const getCreatedTime = (item) => {
 
 const getImagePath = (item) => (
     item?.image
-        ? `${BASE_URL}/uploads/${item.image}`
+        ? getUploadUrl(item.image)
         : 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=900&auto=format&fit=crop'
 );
 
@@ -57,6 +57,14 @@ const getShortText = (value, fallback, maxLength = 126) => {
     if (!text) return fallback;
     if (text.length <= maxLength) return text;
     return `${text.slice(0, maxLength).trim()}...`;
+};
+
+const getVerificationLabel = (status) => {
+    const normalized = status || 'approved';
+    if (normalized === 'pending_create') return 'Menunggu verifikasi';
+    if (normalized === 'pending_update') return 'Edit menunggu';
+    if (normalized === 'rejected') return 'Ditolak admin';
+    return 'Approved';
 };
 
 const MyUMKM = () => {
@@ -100,7 +108,7 @@ const MyUMKM = () => {
         const fetchUMKM = async () => {
             setIsLoading(true);
             try {
-                const { data } = await apiClient.get('/umkm');
+                const { data } = await apiClient.get('/umkm/mine');
                 if (!ignore) setItems(Array.isArray(data) ? data : []);
             } catch {
                 if (!ignore) setItems([]);
@@ -122,7 +130,6 @@ const MyUMKM = () => {
         if (!profileId) return [];
 
         return items
-            .filter((item) => Number(item.userId) === Number(profileId))
             .sort((a, b) => getCreatedTime(b) - getCreatedTime(a));
     }, [items, profileId]);
 
@@ -256,6 +263,9 @@ const MyUMKMCard = ({ item, navigate }) => {
 
             <div className="my-umkm-body">
                 <div>
+                    <span className={`my-umkm-status is-${item.verification_status || 'approved'}`}>
+                        {getVerificationLabel(item.verification_status)}
+                    </span>
                     <h2>{item.nama_umkm}</h2>
                     <p>{summary}</p>
                 </div>

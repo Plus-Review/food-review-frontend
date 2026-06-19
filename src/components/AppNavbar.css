@@ -28,7 +28,9 @@
 .category-page,
 .add-page,
 .detail-page,
-.profile-page {
+.profile-page,
+.activity-page,
+.notification-page {
   --app-nav-offset: 72px;
   padding-top: var(--app-nav-offset);
 }
@@ -90,6 +92,17 @@ html:has(.app-nav) {
   justify-self: start;
   gap: 10px;
   min-width: 0;
+}
+
+.app-mobile-link-list {
+  display: contents;
+}
+
+.app-mobile-menu-toggle,
+.app-mobile-scrim,
+.app-mobile-menu-head,
+.app-mobile-drawer-brand {
+  display: none;
 }
 
 .app-nav-link {
@@ -485,6 +498,12 @@ html:has(.app-nav) {
   line-height: 1;
 }
 
+.app-dropdown button small.is-hot {
+  background: #1f3f2f;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(31, 63, 47, 0.1);
+}
+
 .app-dropdown-icon {
   width: 16px;
   height: 16px;
@@ -512,13 +531,15 @@ html:has(.app-nav) {
   .category-page,
   .add-page,
   .detail-page,
-  .profile-page {
-    --app-nav-offset: 126px;
+  .profile-page,
+  .activity-page,
+  .notification-page {
+    --app-nav-offset: 72px;
   }
 
   .app-nav {
-    grid-template-columns: 1fr auto;
-    gap: 12px;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
     min-height: 72px;
     padding: 12px 20px;
   }
@@ -528,17 +549,210 @@ html:has(.app-nav) {
     left: 20px;
   }
 
+  .app-mobile-menu-toggle {
+    grid-column: 1;
+    grid-row: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: start;
+    gap: 8px;
+    min-height: 40px;
+    border: 1px solid rgba(31, 63, 47, 0.14);
+    border-radius: 999px;
+    background: #fff;
+    color: #1f3f2f;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 8px 12px;
+    box-shadow: 0 10px 24px rgba(24, 23, 20, 0.06);
+  }
+
+  .app-brand {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+    min-width: 0;
+  }
+
+  .app-nav-account {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .app-mobile-menu-toggle svg {
+    width: 17px;
+    height: 17px;
+    stroke-width: 2.5;
+  }
+
+  .app-mobile-menu-toggle.is-open {
+    border-color: rgba(31, 63, 47, 0.24);
+    background: #1f3f2f;
+    color: #fff;
+  }
+
+  .app-mobile-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1001;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    border: 0;
+    background: rgba(24, 23, 20, 0.46);
+    cursor: pointer;
+    padding: 0;
+  }
+
   .app-nav-links {
-    order: 3;
-    grid-column: 1 / -1;
-    justify-self: stretch;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1002;
+    display: grid;
+    grid-auto-rows: max-content;
+    align-content: start;
+    align-items: stretch;
+    justify-self: auto;
+    gap: 12px;
+    width: min(84vw, 330px);
+    height: 100svh;
+    min-width: 0;
+    max-width: 100vw;
+    overflow-y: auto;
+    border-right: 1px solid rgba(24, 23, 20, 0.08);
+    background:
+      linear-gradient(180deg, #fff 0%, #fbfaf6 100%);
+    box-shadow: 24px 0 58px rgba(24, 23, 20, 0.18);
+    opacity: 0;
+    padding: 16px;
+    pointer-events: none;
+    transform: translateX(-108%);
+  }
+
+  .app-nav-links.is-mobile-open {
+    display: grid;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .app-mobile-link-list {
+    display: grid;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  .app-mobile-menu-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(24, 23, 20, 0.08);
+    padding: 4px 0 15px;
+  }
+
+  .app-mobile-menu-title {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .app-mobile-drawer-brand {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    color: #181714;
+    cursor: pointer;
     overflow: visible;
-    padding-bottom: 2px;
+    padding: 2px 8px 2px 0;
+    text-align: left;
+  }
+
+  .app-mobile-drawer-brand .brand-logo {
+    gap: 9px;
+    overflow: visible;
+  }
+
+  .app-mobile-drawer-brand .brand-logo-mark {
+    width: 38px;
+    height: 33px;
+    border-radius: 8px;
+    box-shadow: 0 8px 16px rgba(31, 63, 47, 0.12);
+  }
+
+  .app-mobile-drawer-brand .brand-logo-mark::after {
+    right: 9px;
+    bottom: 6px;
+    left: 9px;
+  }
+
+  .app-mobile-drawer-brand .brand-logo-letters {
+    font-size: 14px;
+  }
+
+  .app-mobile-drawer-brand .brand-logo-plus {
+    top: -4px;
+    right: -4px;
+    width: 15px;
+    height: 15px;
+    border-width: 1.5px;
+    font-size: 11px;
+  }
+
+  .app-mobile-drawer-brand .brand-logo-copy strong {
+    font-size: 15px;
+    font-weight: 950;
+  }
+
+  .app-mobile-menu-head span {
+    display: block;
+  }
+
+  .app-mobile-menu-head span {
+    color: #756f64;
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  .app-mobile-menu-head > button {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(31, 63, 47, 0.12);
+    border-radius: 8px;
+    background: #fff;
+    color: #1f3f2f;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .app-mobile-menu-head > button svg {
+    width: 17px;
+    height: 17px;
+    stroke-width: 2.5;
   }
 
   .app-nav-link {
-    flex: 1 1 0;
+    display: inline-flex;
+    justify-content: flex-start;
+    flex: 0 0 auto;
+    width: 100%;
     min-width: 0;
+    min-height: 44px;
+    border-radius: 8px;
+    padding: 10px 12px;
+    opacity: 1;
+    visibility: visible;
   }
 
   .app-nav-link span {
@@ -546,6 +760,10 @@ html:has(.app-nav) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .app-nav-link-owned small {
+    margin-left: auto;
   }
 
   .app-avatar {
@@ -567,8 +785,10 @@ html:has(.app-nav) {
   .category-page,
   .add-page,
   .detail-page,
-  .profile-page {
-    --app-nav-offset: 122px;
+  .profile-page,
+  .activity-page,
+  .notification-page {
+    --app-nav-offset: 72px;
   }
 
   .app-nav {
@@ -588,22 +808,30 @@ html:has(.app-nav) {
     display: none;
   }
 
+  .app-brand {
+    display: none;
+  }
+
   .app-login {
     min-height: 38px;
     padding: 8px 15px 8px 13px;
   }
 
   .app-avatar {
-    min-width: 54px;
-    max-width: 54px;
+    min-width: 78px;
+    max-width: 86px;
     min-height: 38px;
+    justify-content: space-between;
     gap: 5px;
+    overflow: hidden;
+    padding: 0 10px 0 7px;
   }
 
   .app-avatar img,
   .app-avatar-initial {
-    width: 29px;
-    height: 29px;
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
   }
 
   .app-avatar-copy {
@@ -615,8 +843,15 @@ html:has(.app-nav) {
     padding: 6px 13px 6px 7px;
   }
 
+  .app-mobile-menu-toggle {
+    min-height: 38px;
+    padding: 8px 11px;
+  }
+
   .app-nav-links {
-    gap: 8px;
+    gap: 9px;
+    width: min(88vw, 320px);
+    padding: 14px;
   }
 
   .app-nav-link {
@@ -643,6 +878,10 @@ html:has(.app-nav) {
 }
 
 @media (max-width: 380px) {
+  .app-brand .brand-logo-copy {
+    display: none;
+  }
+
   .app-nav-action span:last-child {
     display: none;
   }
@@ -664,7 +903,9 @@ html:has(.app-nav) {
   .app-avatar,
   .app-avatar-caret,
   .app-nav-action,
-  .app-brand {
+  .app-brand,
+  .app-mobile-menu-toggle,
+  .app-nav-links {
     transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease, color 180ms ease;
   }
 
@@ -672,7 +913,8 @@ html:has(.app-nav) {
   .app-login:hover,
   .app-avatar:hover,
   .app-nav-action:hover,
-  .app-brand:hover {
+  .app-brand:hover,
+  .app-mobile-menu-toggle:hover {
     transform: translateY(-1px);
   }
 

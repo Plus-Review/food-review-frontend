@@ -30,9 +30,9 @@ import {
 } from 'lucide-react';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import { getUploadUrl } from '../config/api';
 import './UMKMDetail.css';
 
-const BASE_URL = 'http://localhost:5000';
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=1200&auto=format&fit=crop';
 
 const defaultIcon = L.icon({
@@ -45,8 +45,7 @@ L.Marker.prototype.options.icon = defaultIcon;
 
 const resolveImageUrl = (image) => {
     if (!image) return '';
-    if (String(image).startsWith('http')) return image;
-    return `${BASE_URL}/uploads/${image}`;
+    return getUploadUrl(image);
 };
 
 const normalizeImageList = (images) => {
@@ -92,6 +91,23 @@ const getReviewName = (review) => (
     || review?.username
     || 'Anonim'
 );
+
+const getReviewUserId = (review) => (
+    review?.userId
+    || review?.User?.id
+    || review?.UserId
+    || null
+);
+
+const isAuthSessionError = (error) => {
+    const status = error?.response?.status;
+    const message = String(error?.response?.data?.message || '').toLowerCase();
+
+    return status === 401
+        || (status === 400 && message.includes('token'))
+        || message.includes('sesi login')
+        || message.includes('login ulang');
+};
 
 const getFoodCategoryType = (value) => {
     const category = String(value || '').toLowerCase();
@@ -163,7 +179,7 @@ const defaultEditForm = {
 const FOOD_TYPE_OPTIONS = [
     'Makanan berat',
     'Snacks & Dessert',
-    'Drink',
+    'Drinks',
 ];
 
 const PRICE_OPTIONS = [
@@ -224,7 +240,15 @@ const Avatar = ({ name }) => (
     </span>
 );
 
-const ReviewBubble = ({ review, onOpenPhotos }) => {
+const ReviewBubble = ({
+    review,
+    canManage = false,
+    isDeleting = false,
+    isUpdating = false,
+    onDelete,
+    onEdit,
+    onOpenPhotos,
+}) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const reviewName = getReviewName(review);
     const comment = String(review.komentar || '').trim();
@@ -236,8 +260,22 @@ const ReviewBubble = ({ review, onOpenPhotos }) => {
             <Avatar name={reviewName} />
             <div className="detail-review-bubble">
                 <div className="detail-review-head">
-                    <strong>{reviewName}</strong>
-                    <span>{formatDate(review.createdAt || review.waktu)}</span>
+                    <div>
+                        <strong>{reviewName}</strong>
+                        <span>{formatDate(review.createdAt || review.waktu)}</span>
+                    </div>
+                    {canManage && (
+                        <div className="detail-review-actions">
+                            <button className="detail-review-edit-button" type="button" disabled={isUpdating} onClick={onEdit}>
+                                <PencilLine aria-hidden="true" />
+                                <span>{isUpdating ? 'Menyimpan...' : 'Edit'}</span>
+                            </button>
+                            <button className="detail-review-delete-button" type="button" disabled={isDeleting} onClick={onDelete}>
+                                <Trash2 aria-hidden="true" />
+                                <span>{isDeleting ? 'Menghapus...' : 'Hapus'}</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <RatingStars value={review.rating || 0} />
                 <p className={isExpanded ? 'is-expanded' : undefined}>{comment}</p>
@@ -464,6 +502,12 @@ const UMKMDetail = () => {
     const [currentUser, setCurrentUser] = useState(() => getCachedUser());
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [reviewToDelete, setReviewToDelete] = useState(null);
+    const [reviewToEdit, setReviewToEdit] = useState(null);
+    const [editReviewRating, setEditReviewRating] = useState(0);
+    const [editReviewComment, setEditReviewComment] = useState('');
+    const [editReviewExistingImages, setEditReviewExistingImages] = useState([]);
+    const [editReviewPhotos, setEditReviewPhotos] = useState([]);
     const [editForm, setEditForm] = useState(defaultEditForm);
     const [editImage, setEditImage] = useState(null);
     const [editPreview, setEditPreview] = useState(null);
@@ -471,11 +515,14 @@ const UMKMDetail = () => {
     const [editNewDetailPhotos, setEditNewDetailPhotos] = useState([]);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeletingReview, setIsDeletingReview] = useState(false);
+    const [isUpdatingReview, setIsUpdatingReview] = useState(false);
     const [manageNotice, setManageNotice] = useState(null);
     const [savedUmkmIds, setSavedUmkmIds] = useState([]);
     const [isSavingUmkm, setIsSavingUmkm] = useState(false);
     const editNewDetailPhotosRef = useRef([]);
     const reviewPhotosRef = useRef([]);
+    const editReviewPhotosRef = useRef([]);
 
     const isLoggedIn = Boolean(localStorage.getItem('token'));
 
@@ -575,10 +622,15 @@ const UMKMDetail = () => {
         reviewPhotosRef.current = reviewPhotos;
     }, [reviewPhotos]);
 
+    useEffect(() => {
+        editReviewPhotosRef.current = editReviewPhotos;
+    }, [editReviewPhotos]);
+
     useEffect(() => (
         () => {
             revokePhotoPreviews(editNewDetailPhotosRef.current);
             revokePhotoPreviews(reviewPhotosRef.current);
+            revokePhotoPreviews(editReviewPhotosRef.current);
         }
     ), []);
 
@@ -633,9 +685,26 @@ const UMKMDetail = () => {
     const isSaved = isLoggedIn && savedUmkmIds.includes(String(id));
     const editDetailPhotoCount = editDetailImages.length + editNewDetailPhotos.length;
     const isEditDetailGalleryFull = editDetailPhotoCount >= MAX_DETAIL_PHOTOS;
+    const editReviewPhotoCount = editReviewExistingImages.length + editReviewPhotos.length;
     const mapUrl = hasLocation
         ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
         : '';
+
+    const handleInvalidSession = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setCurrentUser(null);
+        setSavedUmkmIds([]);
+        window.dispatchEvent(new Event('profile-updated'));
+        window.dispatchEvent(new Event('saved-umkm-updated'));
+        setPageNotice({
+            type: 'warning',
+            message: 'Sesi login kamu sudah tidak valid. Silakan login ulang agar bisa menyimpan UMKM atau mengelola review.',
+            actionLabel: 'Login ulang',
+            actionTarget: '/login',
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     const handleOpenReview = () => {
         if (!isLoggedIn) {
@@ -652,6 +721,26 @@ const UMKMDetail = () => {
         setModalNotice(null);
         revokePhotoPreviews(reviewPhotos);
         setReviewPhotos([]);
+    };
+
+    const handleOpenEditReview = (review) => {
+        setReviewToEdit(review);
+        setEditReviewRating(Number(review.rating || 0));
+        setEditReviewComment(String(review.komentar || ''));
+        setEditReviewExistingImages(normalizeImageList(review.images));
+        revokePhotoPreviews(editReviewPhotos);
+        setEditReviewPhotos([]);
+        setModalNotice(null);
+    };
+
+    const handleCloseEditReview = () => {
+        setReviewToEdit(null);
+        setEditReviewRating(0);
+        setEditReviewComment('');
+        setEditReviewExistingImages([]);
+        setModalNotice(null);
+        revokePhotoPreviews(editReviewPhotos);
+        setEditReviewPhotos([]);
     };
 
     const handleOpenLightbox = (startIndex = 0) => {
@@ -704,6 +793,51 @@ const UMKMDetail = () => {
         });
     };
 
+    const handleEditReviewPhotoChange = (event) => {
+        const selectedFiles = Array.from(event.target.files || [])
+            .filter((file) => file.type.startsWith('image/'));
+
+        if (selectedFiles.length === 0) {
+            event.target.value = '';
+            return;
+        }
+
+        const remainingSlots = Math.max(MAX_REVIEW_PHOTOS - editReviewPhotoCount, 0);
+        if (remainingSlots === 0) {
+            setModalNotice({ type: 'error', message: `Foto review maksimal ${MAX_REVIEW_PHOTOS} gambar.` });
+            event.target.value = '';
+            return;
+        }
+
+        const acceptedFiles = selectedFiles.slice(0, remainingSlots);
+        const nextPhotos = acceptedFiles.map((file) => ({
+            id: `${file.name}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
+            file,
+            preview: URL.createObjectURL(file),
+        }));
+
+        setEditReviewPhotos((current) => [...current, ...nextPhotos]);
+        if (selectedFiles.length > remainingSlots) {
+            setModalNotice({ type: 'error', message: `Hanya ${remainingSlots} foto lagi yang bisa ditambahkan.` });
+        } else {
+            setModalNotice(null);
+        }
+        event.target.value = '';
+    };
+
+    const handleRemoveEditReviewPhoto = (photoId) => {
+        setEditReviewPhotos((current) => {
+            const targetPhoto = current.find((photo) => photo.id === photoId);
+            if (targetPhoto?.preview) URL.revokeObjectURL(targetPhoto.preview);
+            return current.filter((photo) => photo.id !== photoId);
+        });
+    };
+
+    const handleRemoveExistingReviewImage = (imageToRemove) => {
+        setEditReviewExistingImages((current) => current.filter((image) => image !== imageToRemove));
+        setModalNotice(null);
+    };
+
     const handleSubmitReview = async (event) => {
         event.preventDefault();
 
@@ -729,14 +863,103 @@ const UMKMDetail = () => {
             setKomentar('');
             setPageNotice({ type: 'success', message: 'Review berhasil ditambahkan.' });
             setShowAllReviews(false);
+            window.dispatchEvent(new Event('activity-updated'));
             await fetchDetail();
         } catch (error) {
+            if (isAuthSessionError(error)) {
+                handleCloseReview();
+                handleInvalidSession();
+                return;
+            }
+
             setModalNotice({
                 type: 'error',
                 message: error.response?.data?.message || 'Gagal mengirim review. Pastikan akun sudah login.',
             });
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const handleConfirmDeleteReview = async () => {
+        if (!reviewToDelete?.id || isDeletingReview) return;
+
+        setIsDeletingReview(true);
+
+        try {
+            const { data } = await apiClient.delete(`/umkm/${id}/reviews/${reviewToDelete.id}`);
+            setUmkm((current) => ({
+                ...(current || {}),
+                reviews: getReviews(current).filter((review) => Number(review.id) !== Number(reviewToDelete.id)),
+            }));
+            setReviewToDelete(null);
+            setPageNotice({ type: 'success', message: data.message || 'Review berhasil dihapus.' });
+            setShowAllReviews(false);
+            window.dispatchEvent(new Event('activity-updated'));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            void fetchDetail({ keepPrevious: true });
+        } catch (error) {
+            if (isAuthSessionError(error)) {
+                setReviewToDelete(null);
+                handleInvalidSession();
+                return;
+            }
+
+            setPageNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Gagal menghapus review.',
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } finally {
+            setIsDeletingReview(false);
+        }
+    };
+
+    const handleSubmitEditReview = async (event) => {
+        event.preventDefault();
+
+        if (!reviewToEdit?.id || isUpdatingReview) return;
+
+        if (editReviewRating === 0) {
+            setModalNotice({ type: 'error', message: 'Pilih rating bintang terlebih dahulu.' });
+            return;
+        }
+
+        if (!editReviewComment.trim()) {
+            setModalNotice({ type: 'error', message: 'Komentar review wajib diisi.' });
+            return;
+        }
+
+        setIsUpdatingReview(true);
+        setModalNotice(null);
+
+        try {
+            const payload = new FormData();
+            payload.append('rating', editReviewRating);
+            payload.append('komentar', editReviewComment.trim());
+            payload.append('existing_review_images', JSON.stringify(editReviewExistingImages));
+            editReviewPhotos.forEach((photo) => {
+                payload.append('review_images', photo.file);
+            });
+
+            const { data } = await apiClient.put(`/umkm/${id}/reviews/${reviewToEdit.id}`, payload);
+            handleCloseEditReview();
+            setPageNotice({ type: 'success', message: data.message || 'Review berhasil diperbarui.' });
+            window.dispatchEvent(new Event('activity-updated'));
+            await fetchDetail({ keepPrevious: true });
+        } catch (error) {
+            if (isAuthSessionError(error)) {
+                handleCloseEditReview();
+                handleInvalidSession();
+                return;
+            }
+
+            setModalNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Gagal memperbarui review.',
+            });
+        } finally {
+            setIsUpdatingReview(false);
         }
     };
 
@@ -920,12 +1143,19 @@ const UMKMDetail = () => {
                 });
             }
 
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             window.dispatchEvent(new Event('saved-umkm-updated'));
         } catch (error) {
+            if (isAuthSessionError(error)) {
+                handleInvalidSession();
+                return;
+            }
+
             setPageNotice({
                 type: 'error',
                 message: error.response?.data?.message || 'Gagal memperbarui simpanan. Coba lagi beberapa saat.',
             });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsSavingUmkm(false);
         }
@@ -963,7 +1193,9 @@ const UMKMDetail = () => {
                     <div className="detail-hero-copy">
                         <span className="detail-overline">Detail rekomendasi UMKM</span>
                         <h1>{umkm.nama_umkm}</h1>
-                        <p>{description}</p>
+                        <div className="detail-hero-description">
+                            <p>{description}</p>
+                        </div>
 
                         <div className="detail-hero-actions">
                             <span className="detail-kicker">
@@ -1062,14 +1294,9 @@ const UMKMDetail = () => {
                                 <InfoItem icon={Clock} label="Jam operasional" value={operationalHours} />
                                 <InfoItem icon={MapPin} label="Alamat" value={address} wide />
                             </div>
-
-                            <div className="detail-description">
-                                <strong>Deskripsi</strong>
-                                <p>{description}</p>
-                            </div>
                         </section>
 
-                        <section className="detail-panel">
+                        <section className="detail-panel detail-customer-review-panel">
                             <div className="detail-section-head is-row">
                                 <div>
                                     <span>Review pelanggan</span>
@@ -1086,6 +1313,15 @@ const UMKMDetail = () => {
                                     <ReviewBubble
                                         key={review.id || `${getReviewName(review)}-${review.createdAt}`}
                                         review={review}
+                                        canManage={Boolean(
+                                            review.id
+                                            && currentUser?.id
+                                            && Number(getReviewUserId(review)) === Number(currentUser.id)
+                                        )}
+                                        isDeleting={isDeletingReview && Number(reviewToDelete?.id) === Number(review.id)}
+                                        isUpdating={isUpdatingReview && Number(reviewToEdit?.id) === Number(review.id)}
+                                        onEdit={() => handleOpenEditReview(review)}
+                                        onDelete={() => setReviewToDelete(review)}
                                         onOpenPhotos={handleOpenReviewPhotos}
                                     />
                                 )) : (
@@ -1354,6 +1590,136 @@ const UMKMDetail = () => {
                             <button className="detail-danger-button" type="button" disabled={isDeleting} onClick={handleDeleteUmkm}>
                                 <Trash2 aria-hidden="true" />
                                 <span>{isDeleting ? 'Menghapus...' : 'Hapus UMKM'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {reviewToEdit && (
+                <div className="detail-modal-overlay" role="dialog" aria-modal="true" aria-label="Edit review" onClick={handleCloseEditReview}>
+                    <div className="detail-modal detail-review-edit-modal" onClick={(event) => event.stopPropagation()}>
+                        <div className="detail-modal-head">
+                            <div>
+                                <span>Edit review</span>
+                                <h2>Perbarui ulasan kamu</h2>
+                            </div>
+                            <button type="button" aria-label="Tutup modal edit review" onClick={handleCloseEditReview}>
+                                <X aria-hidden="true" />
+                            </button>
+                        </div>
+
+                        {modalNotice && (
+                            <div className={`detail-notice is-${modalNotice.type}`}>
+                                {modalNotice.message}
+                            </div>
+                        )}
+
+                        <form className="detail-review-form" onSubmit={handleSubmitEditReview}>
+                            <label>
+                                <span>Rating kamu</span>
+                                <RatingStars value={editReviewRating} interactive onChange={setEditReviewRating} />
+                            </label>
+
+                            <label>
+                                <span>Komentar</span>
+                                <textarea
+                                    rows="4"
+                                    placeholder="Perbarui pengalamanmu tentang rasa, harga, tempat, atau pelayanan."
+                                    value={editReviewComment}
+                                    onChange={(event) => setEditReviewComment(event.target.value)}
+                                    required
+                                />
+                            </label>
+
+                            <section className="detail-review-upload-panel" aria-label="Edit foto review">
+                                <div className="detail-review-upload-head">
+                                    <div>
+                                        <span>Foto review</span>
+                                        <small>{editReviewPhotoCount}/{MAX_REVIEW_PHOTOS} foto</small>
+                                    </div>
+                                    <label className={editReviewPhotoCount >= MAX_REVIEW_PHOTOS ? 'detail-review-upload-button is-disabled' : 'detail-review-upload-button'}>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            hidden
+                                            disabled={editReviewPhotoCount >= MAX_REVIEW_PHOTOS}
+                                            onChange={handleEditReviewPhotoChange}
+                                        />
+                                        <Camera aria-hidden="true" />
+                                        <span>Tambah foto</span>
+                                    </label>
+                                </div>
+
+                                {editReviewPhotoCount > 0 ? (
+                                    <div className="detail-review-preview-grid">
+                                        {editReviewExistingImages.map((image, index) => (
+                                            <figure key={`existing-${image}-${index}`}>
+                                                <img src={resolveImageUrl(image)} alt={`Foto review tersimpan ${index + 1}`} />
+                                                <button type="button" onClick={() => handleRemoveExistingReviewImage(image)}>
+                                                    Hapus
+                                                </button>
+                                            </figure>
+                                        ))}
+
+                                        {editReviewPhotos.map((photo, index) => (
+                                            <figure key={photo.id}>
+                                                <img src={photo.preview} alt={`Preview review baru ${index + 1}`} />
+                                                <button type="button" onClick={() => handleRemoveEditReviewPhoto(photo.id)}>
+                                                    Hapus
+                                                </button>
+                                            </figure>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p>Tambahkan foto baru kalau ingin review kamu lebih jelas.</p>
+                                )}
+                            </section>
+
+                            <div className="detail-modal-actions">
+                                <button className="detail-ghost-button" type="button" onClick={handleCloseEditReview}>
+                                    Batal
+                                </button>
+                                <button className="detail-primary-button" type="submit" disabled={isUpdatingReview}>
+                                    <Save aria-hidden="true" />
+                                    <span>{isUpdatingReview ? 'Menyimpan...' : 'Simpan Review'}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {reviewToDelete && (
+                <div className="detail-modal-overlay" role="dialog" aria-modal="true" aria-label="Hapus review" onClick={() => setReviewToDelete(null)}>
+                    <div className="detail-modal detail-delete-modal detail-review-delete-modal" onClick={(event) => event.stopPropagation()}>
+                        <div className="detail-delete-icon" aria-hidden="true">
+                            <Trash2 />
+                        </div>
+                        <div className="detail-delete-copy">
+                            <span>Konfirmasi review</span>
+                            <h2>Hapus review kamu?</h2>
+                            <p>
+                                Review dan foto yang kamu tambahkan akan dihapus dari UMKM ini. Review pengguna lain tetap aman.
+                            </p>
+                        </div>
+
+                        <div className="detail-review-delete-preview">
+                            <div className="detail-review-delete-preview-head">
+                                <span>Review yang akan dihapus</span>
+                                <small>{getReviewName(reviewToDelete)}</small>
+                            </div>
+                            <p>{String(reviewToDelete.komentar || '').trim() || 'Review tanpa komentar.'}</p>
+                        </div>
+
+                        <div className="detail-modal-actions">
+                            <button className="detail-ghost-button" type="button" onClick={() => setReviewToDelete(null)}>
+                                Batal
+                            </button>
+                            <button className="detail-danger-button" type="button" disabled={isDeletingReview} onClick={handleConfirmDeleteReview}>
+                                <Trash2 aria-hidden="true" />
+                                <span>{isDeletingReview ? 'Menghapus...' : 'Hapus Review'}</span>
                             </button>
                         </div>
                     </div>
