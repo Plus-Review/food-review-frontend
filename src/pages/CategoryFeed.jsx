@@ -12,8 +12,9 @@ import {
 } from 'lucide-react';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import SiteFooter from '../components/SiteFooter';
 import { getUploadUrl } from '../config/api';
-import { CATEGORY_FEEDS, getCategoryFeedByKey, getCategoryFeedKey } from '../utils/categoryFeeds';
+import { CATEGORY_FEEDS, getCategoryFeedByKey, getCategoryFeedKey, getResolvedCategoryLabel } from '../utils/categoryFeeds';
 import { getSearchQueryLabel, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './CategoryFeed.css';
 
@@ -154,7 +155,7 @@ const CategoryFeed = () => {
                                 type="button"
                                 onClick={() => navigate(`/kategori/${feed.key}`)}
                             >
-                                <img src={feed.imageUrl} alt="" referrerPolicy="no-referrer" />
+                                <img src={feed.imageUrl} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                                 <span>
                                     <strong>{feed.label}</strong>
                                     <small>{categoryCounts[feed.key] || 0} UMKM</small>
@@ -217,6 +218,7 @@ const CategoryFeed = () => {
                     )}
                 </section>
             </section>
+            <SiteFooter />
         </main>
     );
 };
@@ -232,6 +234,7 @@ const CategoryStat = ({ icon: Icon, value, label }) => (
 const CategoryUMKMCard = ({ item, navigate }) => {
     const reviews = getReviews(item);
     const rating = formatRating(getAverageRating(item));
+    const categoryLabel = getResolvedCategoryLabel(item);
     const summary = getTextPreview(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Detail UMKM belum lengkap.'
@@ -245,8 +248,8 @@ const CategoryUMKMCard = ({ item, navigate }) => {
     return (
         <article className="category-umkm-card" onClick={() => navigate(`/umkm/${item.id}`)}>
             <div className="category-umkm-image">
-                <img src={getImagePath(item)} alt={item.nama_umkm} />
-                <span>{item.jenis_makanan || 'Kuliner'}</span>
+                <img src={getImagePath(item)} alt={item.nama_umkm} loading="lazy" decoding="async" />
+                <span>{categoryLabel}</span>
             </div>
 
             <div className="category-umkm-body">

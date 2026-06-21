@@ -13,7 +13,9 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import SiteFooter from '../components/SiteFooter';
 import { getUploadUrl } from '../config/api';
+import { getResolvedCategoryLabel } from '../utils/categoryFeeds';
 import { getSearchQueryLabel, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './CategoryFeed.css';
 import './PopularFeed.css';
@@ -63,6 +65,10 @@ const sortByPopularity = (items) => (
     })
 );
 
+const sortByLatest = (items) => (
+    [...items].sort((a, b) => getCreatedTime(b) - getCreatedTime(a))
+);
+
 const PopularFeed = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -70,6 +76,7 @@ const PopularFeed = () => {
     const [items, setItems] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [platformStats, setPlatformStats] = useState({ totalUsers: 0 });
+    const [feedMode, setFeedMode] = useState('popular');
     const searchTerm = searchParams.get('q') || '';
     const searchLabel = getSearchQueryLabel(searchTerm);
 
@@ -117,12 +124,31 @@ const PopularFeed = () => {
     }, []);
 
     const popularItems = useMemo(() => sortByPopularity(items), [items]);
-    const highlightItems = useMemo(() => popularItems.slice(0, 5), [popularItems]);
+    const latestItems = useMemo(() => sortByLatest(items), [items]);
+    const feedCategories = useMemo(() => ([
+        {
+            key: 'popular',
+            label: 'Paling Populer',
+            description: 'Diurutkan dari review terbanyak, rating tertinggi, lalu update terbaru.',
+            items: popularItems,
+            Icon: Star,
+        },
+        {
+            key: 'latest',
+            label: 'Terbaru',
+            description: 'Diurutkan dari UMKM yang paling baru masuk atau paling baru diperbarui.',
+            items: latestItems,
+            Icon: Clock,
+        },
+    ]), [latestItems, popularItems]);
+    const activeCategory = feedCategories.find((category) => category.key === feedMode) || feedCategories[0];
+    const activeItems = activeCategory.items;
+    const highlightItems = useMemo(() => activeItems.slice(0, 2), [activeItems]);
 
     const visibleItems = useMemo(() => {
-        if (!searchLabel) return popularItems;
-        return rankUmkmSearchResults(popularItems, searchLabel);
-    }, [popularItems, searchLabel]);
+        if (!searchLabel) return activeItems;
+        return rankUmkmSearchResults(activeItems, searchLabel);
+    }, [activeItems, searchLabel]);
 
     const updateSearchTerm = (nextValue) => {
         const nextParams = new URLSearchParams(searchParams);
@@ -144,11 +170,12 @@ const PopularFeed = () => {
 
             <header className="category-hero popular-hero" style={{ '--category-image': `url("${POPULAR_HERO_IMAGE}")` }}>
                 <div className="category-hero-copy">
-                    <span className="category-kicker">Feed paling populer</span>
-                    <h1>Paling Ramai Direview</h1>
+                    <span className="category-kicker">Feed {activeCategory.label.toLowerCase()}</span>
+                    <h1>{activeCategory.label === 'Terbaru' ? 'Update UMKM Terbaru' : 'Paling Ramai Direview'}</h1>
                     <p>
-                        Kumpulan UMKM dengan review dan rating paling kuat, disusun agar kamu cepat menemukan pilihan
-                        yang paling dipercaya pengguna Plus Review.
+                        {activeCategory.key === 'latest'
+                            ? 'Kumpulan UMKM yang paling baru masuk atau diperbarui, disusun agar kamu tidak melewatkan rekomendasi terbaru.'
+                            : 'Kumpulan UMKM dengan review dan rating paling kuat, disusun agar kamu cepat menemukan pilihan yang paling dipercaya pengguna Plus Review.'}
                     </p>
 
                     <div className="category-hero-stats" aria-label="Ringkasan feed populer">
@@ -160,25 +187,57 @@ const PopularFeed = () => {
             </header>
 
             <section className="category-shell">
-                <aside className="category-side-panel popular-side-panel" aria-label="Sorotan paling populer">
-                    <span className="category-side-eyebrow">Sorotan populer</span>
+                <aside className="category-side-panel popular-side-panel" aria-label="Feed by kategori">
+                    <span className="category-side-eyebrow">Pilihan kategori</span>
+
+                    <div className="popular-mode-list" aria-label="Pilihan kategori feed populer">
+                        {feedCategories.map((category) => {
+                            const Icon = category.Icon;
+                            const topItem = category.items[0];
+
+                            return (
+                                <button
+                                    key={category.key}
+                                    className={feedMode === category.key ? 'is-active' : undefined}
+                                    type="button"
+                                    onClick={() => setFeedMode(category.key)}
+                                >
+                                    <span className="popular-mode-icon" aria-hidden="true">
+                                        <Icon />
+                                    </span>
+                                    <span>
+                                        <strong>{category.label}</strong>
+                                        <small>
+                                            {category.items.length} UMKM
+                                            {topItem ? ` - ${topItem.nama_umkm}` : ''}
+                                        </small>
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
 
                     {highlightItems.length > 0 ? (
                         <div className="category-side-list popular-side-list">
+                            <span className="popular-side-heading">Isi {activeCategory.label}</span>
                             {highlightItems.map((item, index) => (
                                 <button key={item.id} type="button" onClick={() => navigate(`/umkm/${item.id}`)}>
-                                    <img src={getImagePath(item)} alt="" />
+                                    <img src={getImagePath(item)} alt="" loading="lazy" decoding="async" />
                                     <span>
                                         <strong>{index + 1}. {item.nama_umkm}</strong>
-                                        <small>{getReviews(item).length} review - Rating {formatRating(getAverageRating(item))}</small>
+                                        <small>
+                                            {activeCategory.key === 'latest'
+                                                ? `${item.jam_operasional || item.jenis_makanan || 'UMKM terbaru'}`
+                                                : `${getReviews(item).length} review - Rating ${formatRating(getAverageRating(item))}`}
+                                        </small>
                                     </span>
                                 </button>
                             ))}
                         </div>
                     ) : (
                         <div className="popular-side-empty">
-                            <strong>Belum ada sorotan</strong>
-                            <span>UMKM dengan review akan tampil di sini.</span>
+                            <strong>Belum ada isi kategori</strong>
+                            <span>UMKM akan tampil otomatis sesuai kategori yang dipilih.</span>
                         </div>
                     )}
 
@@ -190,11 +249,11 @@ const PopularFeed = () => {
                 <section className="category-list-panel">
                     <div className="category-list-head">
                         <div>
-                            <span>Daftar pilihan populer</span>
+                            <span>{activeCategory.key === 'latest' ? 'Daftar update terbaru' : 'Daftar pilihan populer'}</span>
                             <strong>
                                 {searchLabel
                                     ? `${visibleItems.length} hasil untuk "${searchLabel}"`
-                                    : `${visibleItems.length} UMKM paling populer`}
+                                    : `${visibleItems.length} UMKM ${activeCategory.label.toLowerCase()}`}
                             </strong>
                         </div>
 
@@ -203,8 +262,8 @@ const PopularFeed = () => {
                             <input
                                 value={searchTerm}
                                 onChange={(event) => updateSearchTerm(event.target.value)}
-                                placeholder="Cari di feed populer"
-                                aria-label="Cari UMKM populer"
+                                placeholder={`Cari di feed ${activeCategory.label.toLowerCase()}`}
+                                aria-label={`Cari UMKM ${activeCategory.label.toLowerCase()}`}
                             />
                             {searchLabel && (
                                 <button className="category-search-clear" type="button" onClick={clearSearch} aria-label="Hapus pencarian">
@@ -216,8 +275,8 @@ const PopularFeed = () => {
 
                     {isLoading ? (
                         <div className="category-state">
-                            <strong>Memuat feed populer</strong>
-                            <span>Sebentar, daftar UMKM paling ramai sedang disiapkan.</span>
+                            <strong>Memuat feed {activeCategory.label.toLowerCase()}</strong>
+                            <span>Sebentar, daftar UMKM {activeCategory.label.toLowerCase()} sedang disiapkan.</span>
                         </div>
                     ) : visibleItems.length > 0 ? (
                         <div className="category-card-grid">
@@ -227,11 +286,11 @@ const PopularFeed = () => {
                         </div>
                     ) : (
                         <div className="category-state">
-                            <strong>{searchLabel ? `Tidak ada hasil untuk "${searchLabel}"` : 'Belum ada pilihan populer'}</strong>
+                            <strong>{searchLabel ? `Tidak ada hasil untuk "${searchLabel}"` : `Belum ada UMKM ${activeCategory.label.toLowerCase()}`}</strong>
                             <span>
                                 {searchLabel
-                                    ? 'Coba kata kunci lain di feed populer.'
-                                    : 'UMKM yang mulai mendapat review dan rating akan tampil otomatis di halaman ini.'}
+                                    ? `Coba kata kunci lain di feed ${activeCategory.label.toLowerCase()}.`
+                                    : 'UMKM akan tampil otomatis sesuai data yang masuk.'}
                             </span>
                             <button type="button" onClick={() => (searchLabel ? clearSearch() : navigate(isLoggedIn ? '/tambah' : '/login'))}>
                                 {searchLabel ? 'Hapus pencarian' : isLoggedIn ? 'Tambah UMKM' : 'Login untuk tambah'}
@@ -240,6 +299,7 @@ const PopularFeed = () => {
                     )}
                 </section>
             </section>
+            <SiteFooter />
         </main>
     );
 };
@@ -255,6 +315,7 @@ const CategoryStat = ({ icon: Icon, value, label }) => (
 const PopularUMKMCard = ({ item, navigate }) => {
     const reviews = getReviews(item);
     const rating = formatRating(getAverageRating(item));
+    const categoryLabel = getResolvedCategoryLabel(item);
     const summary = getTextPreview(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Detail UMKM belum lengkap.'
@@ -268,8 +329,8 @@ const PopularUMKMCard = ({ item, navigate }) => {
     return (
         <article className="category-umkm-card popular-umkm-card" onClick={() => navigate(`/umkm/${item.id}`)}>
             <div className="category-umkm-image">
-                <img src={getImagePath(item)} alt={item.nama_umkm} />
-                <span>{item.jenis_makanan || 'Kuliner'}</span>
+                <img src={getImagePath(item)} alt={item.nama_umkm} loading="lazy" decoding="async" />
+                <span>{categoryLabel}</span>
             </div>
 
             <div className="category-umkm-body">

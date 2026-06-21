@@ -65,6 +65,7 @@ const AddUMKM = () => {
     const [formData, setFormData] = useState(defaultFormData);
     const [detailPhotos, setDetailPhotos] = useState([]);
     const [selectedDetailPhotoId, setSelectedDetailPhotoId] = useState(null);
+    const [submitNotice, setSubmitNotice] = useState(null);
     const detailPhotosRef = useRef([]);
 
     useEffect(() => (
@@ -129,6 +130,26 @@ const AddUMKM = () => {
     }, [detailPhotoCount, formData, image]);
 
     const coordinateLabel = `${Number(formData.latitude).toFixed(5)}, ${Number(formData.longitude).toFixed(5)}`;
+
+    useEffect(() => {
+        if (!submitNotice || submitNotice.type === 'success') return undefined;
+
+        const timeout = window.setTimeout(() => {
+            setSubmitNotice(null);
+        }, 5200);
+
+        return () => window.clearTimeout(timeout);
+    }, [submitNotice]);
+
+    const showSubmitNotice = (nextNotice) => {
+        setSubmitNotice(nextNotice);
+        window.requestAnimationFrame(() => {
+            document.querySelector('.add-submit-notice')?.scrollIntoView({
+                block: 'nearest',
+                behavior: 'smooth',
+            });
+        });
+    };
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -206,17 +227,29 @@ const AddUMKM = () => {
         event.preventDefault();
 
         if (!image) {
-            alert('Gambar wajib diisi!');
+            showSubmitNotice({
+                type: 'warning',
+                title: 'Foto utama belum dipilih',
+                message: 'Tambahkan foto utama UMKM dulu agar admin bisa memverifikasi tampilan tempat atau makanannya.',
+            });
             return;
         }
 
         if (!formData.nama_umkm.trim()) {
-            alert('Nama UMKM wajib diisi!');
+            showSubmitNotice({
+                type: 'warning',
+                title: 'Nama UMKM belum diisi',
+                message: 'Isi nama UMKM agar data yang masuk ke antrean admin mudah dikenali.',
+            });
             return;
         }
 
         if (!formData.jenis_makanan.trim()) {
-            alert('Jenis makanan wajib dipilih!');
+            showSubmitNotice({
+                type: 'warning',
+                title: 'Kategori belum dipilih',
+                message: 'Pilih kategori Makanan berat, Snacks & Dessert, atau Drinks supaya UMKM masuk feed yang tepat.',
+            });
             return;
         }
 
@@ -235,13 +268,30 @@ const AddUMKM = () => {
         });
 
         setIsSubmitting(true);
+        setSubmitNotice(null);
         try {
             const response = await apiClient.post('/umkm', data);
             window.dispatchEvent(new Event('umkm-updated'));
-            alert(response.data?.message || 'UMKM berhasil dikirim dan menunggu verifikasi admin.');
-            navigate('/umkm-saya');
+            window.dispatchEvent(new Event('notifications-updated'));
+            showSubmitNotice({
+                type: 'success',
+                title: 'UMKM masuk antrean admin',
+                message: response.data?.message || 'UMKM berhasil dikirim. Admin akan memverifikasi data, foto, dan lokasi sebelum tampil di feed.',
+                primaryAction: {
+                    label: 'Lihat UMKM Saya',
+                    onClick: () => navigate('/umkm-saya'),
+                },
+                secondaryAction: {
+                    label: 'Tetap di sini',
+                    onClick: () => setSubmitNotice(null),
+                },
+            });
         } catch (err) {
-            alert(err.response?.data?.message || 'Gagal menambahkan UMKM');
+            showSubmitNotice({
+                type: 'error',
+                title: 'UMKM belum terkirim',
+                message: err.response?.data?.message || 'Gagal menambahkan UMKM. Periksa koneksi dan data yang diisi, lalu coba lagi.',
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -254,6 +304,8 @@ const AddUMKM = () => {
                 isLoggedIn={isLoggedIn}
                 showWorkspaceLinks
             />
+
+            <SubmitNotice notice={submitNotice} onClose={() => setSubmitNotice(null)} />
 
             <header className="add-hero">
                 <div className="add-hero-copy">
@@ -562,6 +614,35 @@ const StepCard = ({ number, title, description }) => (
         <small>{description}</small>
     </div>
 );
+
+const SubmitNotice = ({ notice, onClose }) => {
+    if (!notice) return null;
+
+    return (
+        <div className={`add-submit-notice is-${notice.type}`} role="status" aria-live="polite">
+            <span className="add-submit-notice-icon" aria-hidden="true" />
+            <div className="add-submit-notice-copy">
+                <strong>{notice.title}</strong>
+                <p>{notice.message}</p>
+                {(notice.primaryAction || notice.secondaryAction) && (
+                    <div className="add-submit-notice-actions">
+                        {notice.secondaryAction && (
+                            <button type="button" onClick={notice.secondaryAction.onClick}>
+                                {notice.secondaryAction.label}
+                            </button>
+                        )}
+                        {notice.primaryAction && (
+                            <button type="button" onClick={notice.primaryAction.onClick}>
+                                {notice.primaryAction.label}
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+            <button className="add-submit-notice-close" type="button" onClick={onClose} aria-label="Tutup notifikasi" />
+        </div>
+    );
+};
 
 const Field = ({ label, children, required = false, wide = false }) => (
     <label className={wide ? 'add-field is-wide' : 'add-field'}>

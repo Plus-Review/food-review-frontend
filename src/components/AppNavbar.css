@@ -101,7 +101,9 @@ html:has(.app-nav) {
 .app-mobile-menu-toggle,
 .app-mobile-scrim,
 .app-mobile-menu-head,
-.app-mobile-drawer-brand {
+.app-mobile-drawer-brand,
+.app-mobile-account-card,
+.app-mobile-section-label {
   display: none;
 }
 
@@ -601,9 +603,12 @@ html:has(.app-nav) {
     width: 100vw;
     height: 100vh;
     border: 0;
-    background: rgba(24, 23, 20, 0.46);
+    background:
+      linear-gradient(90deg, rgba(24, 23, 20, 0.42), rgba(24, 23, 20, 0.28));
     cursor: pointer;
     padding: 0;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
   }
 
   .app-nav-links {
@@ -617,18 +622,19 @@ html:has(.app-nav) {
     align-content: start;
     align-items: stretch;
     justify-self: auto;
-    gap: 12px;
-    width: min(84vw, 330px);
+    gap: 11px;
+    width: min(86vw, 354px);
     height: 100svh;
     min-width: 0;
     max-width: 100vw;
     overflow-y: auto;
     border-right: 1px solid rgba(24, 23, 20, 0.08);
     background:
-      linear-gradient(180deg, #fff 0%, #fbfaf6 100%);
-    box-shadow: 24px 0 58px rgba(24, 23, 20, 0.18);
+      radial-gradient(circle at 18% 0%, rgba(239, 184, 79, 0.14) 0%, transparent 32%),
+      linear-gradient(180deg, #fffdf8 0%, #fbfaf6 52%, #f7f1e6 100%);
+    box-shadow: 28px 0 64px rgba(24, 23, 20, 0.2);
     opacity: 0;
-    padding: 16px;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
     pointer-events: none;
     transform: translateX(-108%);
   }
@@ -642,18 +648,19 @@ html:has(.app-nav) {
 
   .app-mobile-link-list {
     display: grid;
-    gap: 9px;
+    gap: 8px;
     min-width: 0;
   }
 
   .app-mobile-menu-head {
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     border-bottom: 1px solid rgba(24, 23, 20, 0.08);
-    padding: 4px 0 15px;
+    padding: 2px 0 14px;
   }
 
   .app-mobile-menu-title {
@@ -672,39 +679,21 @@ html:has(.app-nav) {
     color: #181714;
     cursor: pointer;
     overflow: visible;
-    padding: 2px 8px 2px 0;
+    padding: 0;
     text-align: left;
   }
 
   .app-mobile-drawer-brand .brand-logo {
-    gap: 9px;
+    gap: 10px;
     overflow: visible;
   }
 
   .app-mobile-drawer-brand .brand-logo-mark {
-    width: 38px;
-    height: 33px;
-    border-radius: 8px;
-    box-shadow: 0 8px 16px rgba(31, 63, 47, 0.12);
-  }
-
-  .app-mobile-drawer-brand .brand-logo-mark::after {
-    right: 9px;
-    bottom: 6px;
-    left: 9px;
-  }
-
-  .app-mobile-drawer-brand .brand-logo-letters {
-    font-size: 14px;
-  }
-
-  .app-mobile-drawer-brand .brand-logo-plus {
-    top: -4px;
-    right: -4px;
-    width: 15px;
-    height: 15px;
-    border-width: 1.5px;
-    font-size: 11px;
+    width: 48px;
+    height: 42px;
+    flex-basis: 48px;
+    border-radius: 10px;
+    box-shadow: 0 12px 24px rgba(31, 63, 47, 0.16);
   }
 
   .app-mobile-drawer-brand .brand-logo-copy strong {
@@ -712,11 +701,8 @@ html:has(.app-nav) {
     font-weight: 950;
   }
 
-  .app-mobile-menu-head span {
+  .app-mobile-menu-title > span {
     display: block;
-  }
-
-  .app-mobile-menu-head span {
     color: #756f64;
     font-size: 12px;
     font-weight: 750;
@@ -725,15 +711,17 @@ html:has(.app-nav) {
   .app-mobile-menu-head > button {
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     flex: 0 0 auto;
     border: 1px solid rgba(31, 63, 47, 0.12);
     border-radius: 8px;
-    background: #fff;
+    background:
+      linear-gradient(145deg, #fff, #f8f1e5);
     color: #1f3f2f;
     cursor: pointer;
     padding: 0;
+    box-shadow: 0 8px 18px rgba(24, 23, 20, 0.06);
   }
 
   .app-mobile-menu-head > button svg {
@@ -742,17 +730,141 @@ html:has(.app-nav) {
     stroke-width: 2.5;
   }
 
+  .app-mobile-account-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(31, 63, 47, 0.12);
+    border-radius: 8px;
+    background:
+      linear-gradient(135deg, rgba(31, 63, 47, 0.08), rgba(239, 184, 79, 0.1)),
+      rgba(255, 255, 255, 0.72);
+    color: #181714;
+    cursor: pointer;
+    padding: 10px;
+    text-align: left;
+    box-shadow: 0 14px 30px rgba(35, 34, 29, 0.07);
+  }
+
+  .app-mobile-account-card.is-guest {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .app-mobile-account-photo,
+  .app-mobile-account-photo img,
+  .app-mobile-account-photo > span {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+  }
+
+  .app-mobile-account-photo {
+    overflow: hidden;
+    border: 2px solid #fff;
+    background:
+      linear-gradient(135deg, #1f3f2f, #2f6047);
+    color: #fff;
+    box-shadow: 0 10px 22px rgba(31, 63, 47, 0.16);
+  }
+
+  .app-mobile-account-photo img {
+    object-fit: cover;
+  }
+
+  .app-mobile-account-photo > span {
+    font-size: 15px;
+    font-weight: 950;
+  }
+
+  .app-mobile-account-photo svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.5;
+  }
+
+  .app-mobile-account-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .app-mobile-account-copy small,
+  .app-mobile-account-copy strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-mobile-account-copy small {
+    color: #756f64;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .app-mobile-account-copy strong {
+    color: #181714;
+    font-size: 13.5px;
+    font-weight: 950;
+  }
+
+  .app-mobile-account-icon {
+    justify-self: center;
+    width: 16px;
+    height: 16px;
+    color: #1f3f2f;
+    stroke-width: 2.4;
+  }
+
+  .app-mobile-section-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 2px;
+    color: #8a8073;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .app-mobile-section-label::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(31, 63, 47, 0.16), transparent);
+  }
+
   .app-nav-link {
     display: inline-flex;
     justify-content: flex-start;
     flex: 0 0 auto;
     width: 100%;
     min-width: 0;
-    min-height: 44px;
+    min-height: 46px;
+    border-color: rgba(31, 63, 47, 0.11);
     border-radius: 8px;
-    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.72);
+    color: #4f493f;
+    padding: 8px 11px 8px 9px;
     opacity: 1;
     visibility: visible;
+    box-shadow: 0 8px 18px rgba(24, 23, 20, 0.045);
+  }
+
+  .app-nav-link .app-nav-icon {
+    box-sizing: content-box;
+    width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    background: #edf7ef;
+    color: #1f3f2f;
+    padding: 7px;
   }
 
   .app-nav-link span {
@@ -760,6 +872,21 @@ html:has(.app-nav) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .app-nav-link.is-active {
+    border-color: rgba(31, 63, 47, 0.28);
+    background:
+      linear-gradient(135deg, #1f3f2f, #315f47);
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 14px 30px rgba(31, 63, 47, 0.18);
+  }
+
+  .app-nav-link.is-active .app-nav-icon {
+    background: rgba(255, 255, 255, 0.14);
+    color: #f9d68b;
   }
 
   .app-nav-link-owned small {
@@ -849,21 +976,48 @@ html:has(.app-nav) {
   }
 
   .app-nav-links {
-    gap: 9px;
-    width: min(88vw, 320px);
-    padding: 14px;
+    gap: 8px;
+    width: min(90vw, 326px);
+    padding: max(14px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .app-mobile-drawer-brand .brand-logo-mark {
+    width: 46px;
+    height: 40px;
+    flex-basis: 46px;
+  }
+
+  .app-mobile-drawer-brand .brand-logo-copy strong {
+    font-size: 14px;
   }
 
   .app-nav-link {
-    gap: 6px;
-    min-height: 38px;
-    font-size: 12px;
-    padding: 8px 9px;
+    gap: 8px;
+    min-height: 44px;
+    font-size: 12.5px;
+    padding: 7px 10px 7px 8px;
   }
 
   .app-nav-icon {
     width: 15px;
     height: 15px;
+  }
+
+  .app-mobile-account-card {
+    grid-template-columns: 42px minmax(0, 1fr) 30px;
+    gap: 10px;
+    padding: 9px;
+  }
+
+  .app-mobile-account-card.is-guest {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .app-mobile-account-photo,
+  .app-mobile-account-photo img,
+  .app-mobile-account-photo > span {
+    width: 42px;
+    height: 42px;
   }
 
   .app-back-icon {

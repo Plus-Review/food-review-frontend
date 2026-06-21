@@ -133,6 +133,31 @@ const Profile = () => {
             }
             localStorage.setItem('user', JSON.stringify(data.user));
             window.dispatchEvent(new Event('profile-updated'));
+
+            if (data.requiresVerification) {
+                const verificationEmail = data.email || data.user.email;
+                localStorage.setItem('pendingVerificationEmail', verificationEmail);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                navigate(`/verify-email?email=${encodeURIComponent(verificationEmail)}`, {
+                    replace: true,
+                    state: {
+                        email: verificationEmail,
+                        emailSent: data.emailSent,
+                        devVerificationCode: data.devVerificationCode,
+                        notice: data.message,
+                    },
+                });
+                return;
+            }
+
+            if (data.sessionInvalidated) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                navigate('/login', { replace: true });
+                return;
+            }
+
             setStatusType('success');
             setStatus(data.message || 'Profile berhasil diperbarui.');
         } catch (err) {

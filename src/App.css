@@ -27,3 +27,117 @@
     transform: rotate(360deg);
   }
 }
+
+.app-not-found {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  width: min(1120px, calc(100% - 40px));
+  min-height: 100svh;
+  margin: 0 auto;
+  color: #181714;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  text-align: left;
+}
+
+.app-not-found > span {
+  color: #b77b13;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.app-not-found h1 {
+  max-width: 720px;
+  margin: 10px 0 12px;
+  font-size: clamp(40px, 7vw, 76px);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.98;
+}
+
+.app-not-found p {
+  max-width: 520px;
+  margin: 0;
+  color: #756f64;
+  font-size: 15px;
+  font-weight: 680;
+  line-height: 1.65;
+}
+
+.app-not-found a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 24px;
+  border-radius: 8px;
+  background: #1f3f2f;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  padding: 11px 18px;
+  text-decoration: none;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.app-not-found a:hover {
+  background: #173326;
+  box-shadow: 0 14px 30px rgba(31, 63, 47, 0.18);
+  transform: translateY(-1px);
+}
+
+.app-not-found a:focus-visible {
+  outline: 3px solid rgba(239, 184, 79, 0.45);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .app-not-found {
+    width: min(100% - 32px, 520px);
+  }
+
+  .app-not-found h1 {
+    font-size: clamp(38px, 13vw, 54px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-route-loading span {
+    animation-duration: 1.5s;
+  }
+
+  .app-not-found a {
+    transition: none;
+  }
+}
+
+.capture-mode,
+.capture-mode * {
+  scroll-behavior: auto !important;
+}
+
+.capture-mode *,
+.capture-mode *::before,
+.capture-mode *::after {
+  animation: none !important;
+  caret-color: transparent !important;
+  filter: none !important;
+  transition: none !important;
+}
+
+.capture-mode * {
+  backdrop-filter: none !important;
+}
+
+.capture-mode .landing-scroll-reveal {
+  clip-path: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.capture-mode .back-to-top,
+.capture-mode .admin-sidebar-scrim,
+.capture-mode .nav-sidebar-scrim,
+.capture-mode [role="tooltip"] {
+  display: none !important;
+}

@@ -221,7 +221,7 @@ const AppNavbar = ({
             onFeedClick();
             return;
         }
-        navigate('/#feed');
+        navigate('/populer');
     };
 
     const goAdd = () => {
@@ -298,6 +298,44 @@ const AppNavbar = ({
                     <button type="button" aria-label="Tutup menu navigasi" onClick={() => setShowMobileMenu(false)}>
                         <X aria-hidden="true" />
                     </button>
+                </div>
+
+                {isLoggedIn ? (
+                    <button className="app-mobile-account-card" type="button" onClick={goProfile}>
+                        <span className="app-mobile-account-photo" aria-hidden="true">
+                            {profileImageUrl ? (
+                                <img src={profileImageUrl} alt="" />
+                            ) : (
+                                <span>{profileInitial}</span>
+                            )}
+                        </span>
+                        <span className="app-mobile-account-copy">
+                            <small>Masuk sebagai</small>
+                            <strong>{profileName}</strong>
+                        </span>
+                        <PencilLine className="app-mobile-account-icon" aria-hidden="true" />
+                    </button>
+                ) : (
+                    <button
+                        className="app-mobile-account-card is-guest"
+                        type="button"
+                        onClick={() => {
+                            closeMenus();
+                            navigate('/login');
+                        }}
+                    >
+                        <span className="app-mobile-account-photo" aria-hidden="true">
+                            <LogIn />
+                        </span>
+                        <span className="app-mobile-account-copy">
+                            <small>Akun Plus Review</small>
+                            <strong>Masuk untuk mulai</strong>
+                        </span>
+                    </button>
+                )}
+
+                <div className="app-mobile-section-label">
+                    <span>Navigasi</span>
                 </div>
 
                 <div className="app-mobile-link-list">

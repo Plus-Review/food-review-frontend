@@ -2,21 +2,30 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     AlertCircle,
     Bell,
+    Camera,
     CheckCircle2,
     Clock3,
     Eye,
+    EyeOff,
     LogOut,
     MailOpen,
+    Menu,
     RefreshCw,
     Search,
+    Save,
     ShieldCheck,
     Store,
+    Trash2,
+    UserRound,
+    X,
     XCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import adminApiClient from '../api/adminApiClient';
 import BrandLogo from '../components/BrandLogo';
+import PasswordStrength from '../components/PasswordStrength';
 import { getUploadUrl } from '../config/api';
+import { getPasswordStrength, PASSWORD_RULE_MESSAGE } from '../utils/passwordStrength';
 import './AdminDashboard.css';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=900&auto=format&fit=crop';
@@ -79,6 +88,15 @@ const getImageUrl = (image) => {
     return getUploadUrl(image);
 };
 
+const getProfileImageUrl = (image) => {
+    if (!image) return '';
+    return getUploadUrl(image);
+};
+
+const getAdminInitial = (admin) => (
+    String(admin?.name || admin?.username || 'A').trim().charAt(0).toUpperCase() || 'A'
+);
+
 const formatDate = (value) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'Belum ada';
@@ -117,6 +135,17 @@ const matchesSearch = (item, searchTerm) => {
 
 const getPendingTotal = (stats = {}) => (stats.pendingCreate || 0) + (stats.pendingUpdate || 0);
 
+const scrollToVerificationPanel = () => {
+    if (window.innerWidth > 760) return;
+
+    window.requestAnimationFrame(() => {
+        document.getElementById('admin-verification-panel')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    });
+};
+
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const [admin, setAdmin] = useState(() => getCachedAdmin());
@@ -140,6 +169,9 @@ const AdminDashboard = () => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [deletingAdminNotificationId, setDeletingAdminNotificationId] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     const loadDashboard = async () => {
         setIsLoading(true);
@@ -195,6 +227,19 @@ const AdminDashboard = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        if (!isSidebarOpen) return undefined;
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                setIsSidebarOpen(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isSidebarOpen]);
+
     const visibleItems = useMemo(() => (
         items
             .filter((item) => {
@@ -216,6 +261,7 @@ const AdminDashboard = () => {
         setActiveFilter(filterKey);
         setSelectedId(null);
         setNote('');
+        setIsSidebarOpen(false);
     };
 
     const handleSearchChange = (value) => {
@@ -227,6 +273,7 @@ const AdminDashboard = () => {
     const handleLogout = () => {
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminUser');
+        setIsSidebarOpen(false);
         navigate('/admin');
     };
 
@@ -291,6 +338,54 @@ const AdminDashboard = () => {
         setActiveFilter('all');
         setSearchTerm('');
         setSelectedId(notification.relatedUmkmId);
+        scrollToVerificationPanel();
+    };
+
+    const removeAdminNotificationFromState = (notification) => {
+        setAdminNotifications((current) => ({
+            ...current,
+            total: Math.max(0, Number(current.total || 0) - 1),
+            unread: Math.max(0, Number(current.unread || 0) - (notification.isRead ? 0 : 1)),
+            notifications: current.notifications.filter((item) => Number(item.id) !== Number(notification.id)),
+        }));
+    };
+
+    const handleAdminNotificationDelete = async (notification) => {
+        if (!notification || deletingAdminNotificationId) return;
+
+        setDeletingAdminNotificationId(notification.id);
+        setNotice(null);
+
+        try {
+            try {
+                await adminApiClient.delete(`/notifications/${notification.id}`);
+            } catch (deleteError) {
+                const status = Number(deleteError.response?.status || 0);
+                const responseMessage = deleteError.response?.data?.message;
+
+                if (status === 404 && responseMessage === 'Notifikasi tidak ditemukan.') {
+                    removeAdminNotificationFromState(notification);
+                    setNotice({ type: 'success', message: 'Notifikasi sudah tidak tersedia dan dibersihkan dari panel.' });
+                    return;
+                }
+
+                if (!deleteError.response || status === 404 || status === 405 || typeof responseMessage !== 'string') {
+                    await adminApiClient.post(`/notifications/${notification.id}/delete`);
+                } else {
+                    throw deleteError;
+                }
+            }
+
+            removeAdminNotificationFromState(notification);
+            setNotice({ type: 'success', message: 'Notifikasi admin berhasil dihapus.' });
+        } catch (error) {
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Notifikasi admin belum bisa dihapus. Restart backend lalu coba lagi.',
+            });
+        } finally {
+            setDeletingAdminNotificationId(null);
+        }
     };
 
     const handleAllAdminNotificationsRead = async () => {
@@ -314,21 +409,65 @@ const AdminDashboard = () => {
     };
 
     return (
-        <main className="admin-page">
-            <aside className="admin-sidebar">
-                <button className="admin-brand" type="button" onClick={() => navigate('/')}>
-                    <BrandLogo showSubtitle={false} />
+        <main className={isSidebarOpen ? 'admin-page is-sidebar-open' : 'admin-page'}>
+            <header className="admin-mobile-topbar">
+                <button
+                    className="admin-mobile-menu-button"
+                    type="button"
+                    aria-label="Buka menu admin"
+                    aria-expanded={isSidebarOpen}
+                    onClick={() => setIsSidebarOpen(true)}
+                >
+                    <Menu aria-hidden="true" />
+                    <span>Menu</span>
                 </button>
 
-                <div className="admin-profile">
-                    <span>
-                        <ShieldCheck aria-hidden="true" />
+                <span className="admin-mobile-spacer" aria-hidden="true" />
+
+                <button className="admin-mobile-refresh" type="button" onClick={loadDashboard} disabled={isLoading} aria-label="Refresh dashboard">
+                    <RefreshCw aria-hidden="true" />
+                </button>
+            </header>
+
+            {isSidebarOpen && (
+                <button
+                    className="admin-sidebar-scrim"
+                    type="button"
+                    aria-label="Tutup menu admin"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            <aside className="admin-sidebar">
+                <div className="admin-sidebar-head">
+                    <button className="admin-brand" type="button" onClick={() => navigate('/')}>
+                        <BrandLogo showSubtitle={false} />
+                    </button>
+                    <button className="admin-sidebar-close" type="button" aria-label="Tutup menu admin" onClick={() => setIsSidebarOpen(false)}>
+                        <X aria-hidden="true" />
+                    </button>
+                </div>
+
+                <button
+                    className="admin-profile"
+                    type="button"
+                    onClick={() => {
+                        setIsProfileOpen(true);
+                        setIsSidebarOpen(false);
+                    }}
+                >
+                    <span className={admin?.profileImage ? 'has-photo' : undefined}>
+                        {admin?.profileImage ? (
+                            <img src={getProfileImageUrl(admin.profileImage)} alt="" />
+                        ) : (
+                            <em>{getAdminInitial(admin)}</em>
+                        )}
                     </span>
                     <div>
                         <strong>{admin?.name || 'Admin Plus Review'}</strong>
-                        <small>{admin?.username || 'admin'}</small>
+                        <small>{admin?.username || 'admin'} - Edit profile</small>
                     </div>
-                </div>
+                </button>
 
                 <nav className="admin-filter-list" aria-label="Filter dashboard admin">
                     {FILTERS.map((filter) => (
@@ -385,6 +524,8 @@ const AdminDashboard = () => {
                     onOpen={handleAdminNotificationOpen}
                     onRead={handleAdminNotificationRead}
                     onReadAll={handleAllAdminNotificationsRead}
+                    onDelete={handleAdminNotificationDelete}
+                    deletingId={deletingAdminNotificationId}
                 />
 
                 {notice && (
@@ -434,6 +575,7 @@ const AdminDashboard = () => {
                                         onSelect={() => {
                                             setSelectedId(item.id);
                                             setNote('');
+                                            scrollToVerificationPanel();
                                         }}
                                     />
                                 ))
@@ -453,6 +595,17 @@ const AdminDashboard = () => {
                     />
                 </div>
             </section>
+
+            {isProfileOpen && (
+                <AdminProfileModal
+                    admin={admin}
+                    onClose={() => setIsProfileOpen(false)}
+                    onSaved={(nextAdmin) => {
+                        setAdmin(nextAdmin);
+                        localStorage.setItem('adminUser', JSON.stringify(nextAdmin));
+                    }}
+                />
+            )}
         </main>
     );
 };
@@ -474,7 +627,7 @@ const AdminStat = ({ icon: Icon, value, label, tone = 'neutral' }) => (
     </article>
 );
 
-const AdminNotificationPanel = ({ data, onOpen, onRead, onReadAll }) => {
+const AdminNotificationPanel = ({ data, onOpen, onRead, onReadAll, onDelete, deletingId }) => {
     const notifications = data.notifications || [];
     const visibleNotifications = notifications.slice(0, 3);
 
@@ -499,6 +652,8 @@ const AdminNotificationPanel = ({ data, onOpen, onRead, onReadAll }) => {
                         notification={notification}
                         onOpen={() => onOpen(notification)}
                         onRead={() => onRead(notification.id)}
+                        onDelete={() => onDelete(notification)}
+                        isDeleting={Number(deletingId) === Number(notification.id)}
                     />
                 )) : (
                     <div className="admin-notification-empty">
@@ -516,22 +671,38 @@ const AdminNotificationPanel = ({ data, onOpen, onRead, onReadAll }) => {
     );
 };
 
-const AdminNotificationCard = ({ notification, onOpen, onRead }) => {
+const AdminNotificationCard = ({ notification, onOpen, onRead, onDelete, isDeleting }) => {
     const meta = ADMIN_NOTIFICATION_META[notification.type] || {
         label: 'Notifikasi',
         tone: 'neutral',
         icon: Bell,
     };
-    const Icon = meta.icon;
+    const relatedStatus = notification.umkm?.verification_status || notification.metadata?.status || '';
+    const isCreateNotification = notification.type === 'umkm_pending_create';
+    const isUpdateNotification = notification.type === 'umkm_pending_update';
+    const isApproved = relatedStatus === 'approved' && (isCreateNotification || isUpdateNotification);
+    const isRejected = relatedStatus === 'rejected' && isCreateNotification;
+    const label = isApproved
+        ? (isCreateNotification ? 'UMKM baru telah diverifikasi' : 'Edit UMKM telah diverifikasi')
+        : isRejected
+            ? 'UMKM baru ditolak'
+            : meta.label;
+    const title = isApproved
+        ? label
+        : isRejected
+            ? 'UMKM baru ditolak admin'
+            : notification.title;
+    const tone = isApproved ? 'success' : isRejected ? 'danger' : meta.tone;
+    const Icon = isApproved ? CheckCircle2 : isRejected ? XCircle : meta.icon;
 
     return (
         <article className={notification.isRead ? 'admin-notification-card' : 'admin-notification-card is-unread'}>
-            <span className={`admin-notification-icon is-${meta.tone}`}>
+            <span className={`admin-notification-icon is-${tone}`}>
                 <Icon aria-hidden="true" />
             </span>
             <div>
-                <small>{meta.label} - {formatDate(notification.createdAt)}</small>
-                <strong>{notification.title}</strong>
+                <small>{label} - {formatDate(notification.createdAt)}</small>
+                <strong>{title}</strong>
                 <p>{notification.umkm?.nama_umkm || notification.metadata?.umkmName || notification.message}</p>
             </div>
             <div className="admin-notification-actions">
@@ -540,11 +711,208 @@ const AdminNotificationCard = ({ notification, onOpen, onRead }) => {
                         Baca
                     </button>
                 )}
-                <button type="button" onClick={onOpen}>
+                <button className="is-open" type="button" onClick={onOpen}>
                     Pilih
+                </button>
+                <button className="is-danger" type="button" onClick={onDelete} disabled={isDeleting}>
+                    <Trash2 aria-hidden="true" />
+                    <span>{isDeleting ? 'Menghapus' : 'Hapus'}</span>
                 </button>
             </div>
         </article>
+    );
+};
+
+const AdminProfileModal = ({ admin, onClose, onSaved }) => {
+    const [name, setName] = useState(admin?.name || '');
+    const [password, setPassword] = useState('');
+    const [profileImage, setProfileImage] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [status, setStatus] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+    }, [previewUrl]);
+
+    const currentImageUrl = previewUrl || getProfileImageUrl(admin?.profileImage);
+    const passwordStrength = getPasswordStrength(password);
+    const hasChanges = name.trim() !== (admin?.name || '') || Boolean(password.trim()) || Boolean(profileImage);
+
+    const handleImageChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setProfileImage(file);
+        setPreviewUrl(URL.createObjectURL(file));
+        setStatus(null);
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (isSaving) return;
+
+        if (!hasChanges) {
+            setStatus({ type: 'warning', message: 'Isi perubahan terlebih dahulu sebelum menyimpan.' });
+            return;
+        }
+
+        if (!name.trim()) {
+            setStatus({ type: 'error', message: 'Nama admin wajib diisi.' });
+            return;
+        }
+
+        if (password.trim() && !passwordStrength.isValid) {
+            setStatus({ type: 'error', message: PASSWORD_RULE_MESSAGE });
+            return;
+        }
+
+        setIsSaving(true);
+        setStatus(null);
+
+        try {
+            let payload = {
+                name: name.trim(),
+            };
+
+            if (password.trim()) payload.password = password;
+
+            if (profileImage) {
+                payload = new FormData();
+                payload.append('name', name.trim());
+                if (password.trim()) payload.append('password', password);
+                payload.append('profileImage', profileImage);
+            }
+
+            const { data } = await adminApiClient.put('/profile', payload);
+            if (data.sessionInvalidated) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                window.location.assign('/login');
+                return;
+            }
+            onSaved(data.admin);
+            setName(data.admin?.name || name.trim());
+            setPassword('');
+            setProfileImage(null);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setPreviewUrl('');
+            setStatus({ type: 'success', message: data.message || 'Profile admin berhasil diperbarui.' });
+        } catch (error) {
+            const responseMessage = typeof error.response?.data?.message === 'string'
+                ? error.response.data.message
+                : '';
+            const statusCode = Number(error.response?.status || 0);
+            const fallbackMessage = statusCode === 404
+                ? 'Endpoint profile admin belum aktif. Stop backend lama, lalu jalankan ulang npm run backend dari folder food-review.'
+                : error.request && !error.response
+                ? 'Backend belum aktif atau perlu di-restart agar fitur profile admin terbaru terbaca.'
+                : 'Profile admin belum bisa disimpan. Coba login ulang admin lalu simpan kembali.';
+
+            setStatus({
+                type: 'error',
+                message: responseMessage || fallbackMessage,
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="admin-profile-modal-overlay" role="presentation" onMouseDown={onClose}>
+            <form
+                className="admin-profile-modal"
+                onSubmit={handleSubmit}
+                onMouseDown={(event) => event.stopPropagation()}
+                aria-label="Edit profile admin"
+            >
+                <div className="admin-profile-modal-head">
+                    <div>
+                        <span>Akun admin</span>
+                        <strong>Edit profile</strong>
+                        <small>{admin?.username || 'admin'}</small>
+                    </div>
+                    <button type="button" aria-label="Tutup edit profile admin" onClick={onClose}>
+                        <X aria-hidden="true" />
+                    </button>
+                </div>
+
+                <label className="admin-profile-upload">
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} />
+                    <span>
+                        {currentImageUrl ? (
+                            <img src={currentImageUrl} alt="" />
+                        ) : (
+                            <em>{getAdminInitial(admin)}</em>
+                        )}
+                    </span>
+                    <strong>
+                        <Camera aria-hidden="true" />
+                        Ganti foto profil
+                    </strong>
+                    <small>JPG, PNG, atau WEBP maksimal 2MB.</small>
+                </label>
+
+                <label className="admin-profile-field">
+                    <span>Nama admin</span>
+                    <div className="admin-profile-input-shell">
+                        <UserRound aria-hidden="true" />
+                        <input
+                            value={name}
+                            onChange={(event) => {
+                                setName(event.target.value);
+                                setStatus(null);
+                            }}
+                            maxLength={60}
+                            placeholder="Nama admin"
+                        />
+                    </div>
+                </label>
+
+                <label className="admin-profile-field">
+                    <span>Password baru</span>
+                    <div className="admin-profile-input-shell">
+                        <ShieldCheck aria-hidden="true" />
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(event) => {
+                                setPassword(event.target.value);
+                                setStatus(null);
+                            }}
+                            placeholder="Kosongkan jika tidak diganti"
+                            autoComplete="new-password"
+                        />
+                        <button
+                            type="button"
+                            aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                            onClick={() => setShowPassword((current) => !current)}
+                        >
+                            {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                        </button>
+                    </div>
+                    <PasswordStrength password={password} compact emptyLabel="Tidak diganti" />
+                </label>
+
+                {status && (
+                    <div className={`admin-profile-status is-${status.type}`} role="status">
+                        {status.message}
+                    </div>
+                )}
+
+                <div className="admin-profile-actions">
+                    <button type="button" onClick={onClose}>
+                        Batal
+                    </button>
+                    <button type="submit" disabled={isSaving}>
+                        <Save aria-hidden="true" />
+                        {isSaving ? 'Menyimpan...' : 'Simpan profile'}
+                    </button>
+                </div>
+            </form>
+        </div>
     );
 };
 
@@ -580,7 +948,7 @@ const AdminQueueCard = ({ item, isSelected, onSelect }) => {
 const AdminDetailPanel = ({ item, note, onNoteChange, onApprove, onReject, isProcessing }) => {
     if (!item) {
         return (
-            <aside className="admin-detail-panel">
+            <aside className="admin-detail-panel" id="admin-verification-panel">
                 <AdminState title="Pilih UMKM" text="Klik salah satu data di antrean untuk melihat detail verifikasi." />
             </aside>
         );
@@ -593,7 +961,7 @@ const AdminDetailPanel = ({ item, note, onNoteChange, onApprove, onReject, isPro
     const canDecide = status === 'pending_create' || status === 'pending_update' || status === 'rejected';
 
     return (
-        <aside className="admin-detail-panel">
+        <aside className="admin-detail-panel" id="admin-verification-panel">
             <div className="admin-detail-cover">
                 <img src={getImageUrl(pendingFields?.image || item.pending_update?.primaryImage || item.image)} alt={item.nama_umkm} />
                 <StatusPill status={status} />

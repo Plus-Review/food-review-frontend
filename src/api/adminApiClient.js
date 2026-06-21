@@ -3,6 +3,10 @@ import { API_BASE_URL } from '../config/api';
 
 const adminApiClient = axios.create({
     baseURL: `${API_BASE_URL}/admin`,
+    timeout: 15000,
+    headers: {
+        Accept: 'application/json',
+    },
 });
 
 adminApiClient.interceptors.request.use((config) => {

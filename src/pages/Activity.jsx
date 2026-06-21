@@ -272,7 +272,7 @@ const ActivityCard = ({ activity, navigate }) => {
     return (
         <article className="activity-card">
             <button className="activity-card-image" type="button" onClick={openDetail} disabled={!umkm?.id}>
-                <img src={getUmkmImage(umkm)} alt={umkm?.nama_umkm || 'UMKM'} />
+                <img src={getUmkmImage(umkm)} alt={umkm?.nama_umkm || 'UMKM'} loading="lazy" decoding="async" />
                 <span>{umkm?.jenis_makanan || 'Kuliner'}</span>
             </button>
 
@@ -310,7 +310,7 @@ const ActivityCard = ({ activity, navigate }) => {
                         <div className="activity-photo-strip" aria-label="Foto review">
                             {previewImages.map((image, index) => (
                                 <span key={`${image}-${index}`}>
-                                    <img src={resolveUploadUrl(image)} alt={`Foto review ${index + 1}`} />
+                                    <img src={resolveUploadUrl(image)} alt={`Foto review ${index + 1}`} loading="lazy" decoding="async" />
                                 </span>
                             ))}
                             {reviewImages.length > previewImages.length && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowRight,
     BadgeCheck,
@@ -21,8 +21,9 @@ import apiClient from '../api/apiClient';
 import cutleryIcon from '../assets/cutlery.png';
 import AppNavbar from '../components/AppNavbar';
 import BrandLogo from '../components/BrandLogo';
+import SiteFooter from '../components/SiteFooter';
 import { getUploadUrl } from '../config/api';
-import { CATEGORY_FEEDS, getCategoryFeedKey } from '../utils/categoryFeeds';
+import { CATEGORY_FEEDS, getCategoryFeedKey, getResolvedCategoryLabel } from '../utils/categoryFeeds';
 import { getSearchQueryLabel, getUmkmSearchScore, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './Home.css';
 
@@ -30,13 +31,28 @@ const HERO_IMAGE = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=
 const LANDING_HERO_IMAGE = 'https://images.pexels.com/photos/4589511/pexels-photo-4589511.jpeg?auto=compress&cs=tinysrgb&w=1800&h=1000&fit=crop';
 const LANDING_PREVIEW_IMAGE = 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=1200&auto=format&fit=crop';
 const POPULAR_FEED_LIMIT = 5;
-const MY_UMKM_PREVIEW_LIMIT = 1;
+const SAVED_UMKM_PREVIEW_LIMIT = 2;
 const NEARBY_LIMIT = 2;
 const EARTH_RADIUS_KM = 6371;
+const LANDING_INTRO_STORAGE_KEY = 'plus-review-landing-intro-seen';
 const CATEGORY_ICONS = {
     'makanan-berat': Utensils,
     'dessert-snacks': Cookie,
     drinks: Coffee,
+};
+
+const shouldShowLandingIntro = () => {
+    if (typeof window === 'undefined') return false;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('intro') === '1') return true;
+    if (params.get('capture') === '1') return false;
+
+    try {
+        return sessionStorage.getItem(LANDING_INTRO_STORAGE_KEY) !== '1';
+    } catch {
+        return true;
+    }
 };
 
 const getReviews = (item) => item.reviews || [];
@@ -123,24 +139,31 @@ const formatDistance = (distanceKm) => {
     return `${Math.round(distanceKm)} km`;
 };
 
-const getCachedUser = () => {
-    try {
-        return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch {
-        return null;
-    }
-};
-
 const Home = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const isLoggedIn = Boolean(localStorage.getItem('token'));
+    const [showLandingIntro, setShowLandingIntro] = useState(() => !isLoggedIn && shouldShowLandingIntro());
+    const [isLandingRevealing, setIsLandingRevealing] = useState(false);
     const [umkmList, setUmkmList] = useState([]);
     const [platformStats, setPlatformStats] = useState({ totalUsers: 0 });
+    const [savedUmkm, setSavedUmkm] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentUser, setCurrentUser] = useState(() => (isLoggedIn ? getCachedUser() : null));
     const [loginNotice, setLoginNotice] = useState(null);
     const searchLabel = getSearchQueryLabel(searchTerm);
+
+    const completeLandingIntro = useCallback(() => {
+        try {
+            sessionStorage.setItem(LANDING_INTRO_STORAGE_KEY, '1');
+        } catch {
+            // Intro tetap selesai jika sessionStorage tidak tersedia.
+        }
+        setShowLandingIntro(false);
+    }, []);
+
+    const beginLandingReveal = useCallback(() => {
+        setIsLandingRevealing(true);
+    }, []);
 
     useEffect(() => {
         let ignore = false;
@@ -208,9 +231,9 @@ const Home = () => {
 
         apiClient.get('/auth/profile')
             .then(({ data }) => {
-                if (!ignore) {
-                    setCurrentUser(data.user);
+                if (!ignore && data.user) {
                     localStorage.setItem('user', JSON.stringify(data.user));
+                    window.dispatchEvent(new Event('profile-updated'));
                 }
             })
             .catch(() => {
@@ -219,6 +242,33 @@ const Home = () => {
 
         return () => {
             ignore = true;
+        };
+    }, [isLoggedIn]);
+
+    useEffect(() => {
+        if (!isLoggedIn) {
+            return undefined;
+        }
+
+        let ignore = false;
+
+        const fetchSavedUmkm = async () => {
+            try {
+                const { data } = await apiClient.get('/umkm/saved');
+                if (!ignore) setSavedUmkm(Array.isArray(data) ? data : []);
+            } catch {
+                if (!ignore) setSavedUmkm([]);
+            }
+        };
+
+        fetchSavedUmkm();
+        window.addEventListener('saved-umkm-updated', fetchSavedUmkm);
+        window.addEventListener('storage', fetchSavedUmkm);
+
+        return () => {
+            ignore = true;
+            window.removeEventListener('saved-umkm-updated', fetchSavedUmkm);
+            window.removeEventListener('storage', fetchSavedUmkm);
         };
     }, [isLoggedIn]);
 
@@ -265,30 +315,9 @@ const Home = () => {
         [...umkmList].sort((a, b) => getCreatedTime(b) - getCreatedTime(a))
     ), [umkmList]);
 
-    const myUmkm = useMemo(() => {
-        if (!currentUser?.id) return [];
-
-        return umkmList
-            .filter((item) => Number(item.userId) === Number(currentUser.id))
-            .sort((a, b) => getCreatedTime(b) - getCreatedTime(a));
-    }, [currentUser, umkmList]);
-
     const totalReviews = useMemo(() => (
         umkmList.reduce((sum, item) => sum + getReviews(item).length, 0)
     ), [umkmList]);
-
-    const categorySummary = useMemo(() => {
-        const summary = filteredUmkm.reduce((acc, item) => {
-            const category = String(item.jenis_makanan || 'Kuliner').trim() || 'Kuliner';
-            acc[category] = (acc[category] || 0) + 1;
-            return acc;
-        }, {});
-
-        return Object.entries(summary)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 4)
-            .map(([name, count]) => ({ name, count }));
-    }, [filteredUmkm]);
 
     const latestFeedItem = latestUmkm[0];
     const latestFeedReviews = getReviews(latestFeedItem || {});
@@ -316,10 +345,8 @@ const Home = () => {
 
     const handleSearchSubmit = (event) => {
         event.preventDefault();
-        navigate('/#feed');
-        window.requestAnimationFrame(() => {
-            document.getElementById('feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+        const query = getSearchQueryLabel(searchTerm);
+        navigate(query ? `/populer?q=${encodeURIComponent(query)}` : '/populer');
     };
 
     const clearSearch = () => {
@@ -327,10 +354,7 @@ const Home = () => {
     };
 
     const handleFeedClick = () => {
-        navigate('/#feed');
-        window.requestAnimationFrame(() => {
-            document.getElementById('feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+        navigate('/populer');
     };
 
     const navbarActive = location.hash === '#feed'
@@ -340,8 +364,21 @@ const Home = () => {
             : 'beranda';
 
     if (!isLoggedIn) {
+        const landingClassName = [
+            'home-page landing-page',
+            showLandingIntro && !isLandingRevealing ? 'is-intro-active' : '',
+            isLandingRevealing ? 'is-intro-revealing' : '',
+        ].filter(Boolean).join(' ');
+
         return (
-            <main className="home-page landing-page">
+            <main className={landingClassName}>
+                {showLandingIntro && (
+                    <LandingIntro
+                        onRevealStart={beginLandingReveal}
+                        onComplete={completeLandingIntro}
+                    />
+                )}
+
                 {loginNotice && (
                     <LoginRequiredNotice
                         notice={loginNotice}
@@ -364,6 +401,8 @@ const Home = () => {
                     onLogin={() => navigate('/login')}
                     onRegister={() => navigate('/register')}
                 />
+
+                <SiteFooter />
             </main>
         );
     }
@@ -466,7 +505,7 @@ const Home = () => {
 
                     <MyUMKMPanel
                         isLoggedIn={isLoggedIn}
-                        items={myUmkm}
+                        items={savedUmkm}
                         allItems={umkmList}
                         navigate={navigate}
                         onRequireLogin={showLoginNotice}
@@ -494,17 +533,6 @@ const Home = () => {
                             />
                         </div>
 
-                        <FeedOverview
-                            categories={categorySummary}
-                            items={popularUmkm}
-                            navigate={guardedNavigate}
-                            searchTerm={searchTerm}
-                            totalUsers={platformStats.totalUsers}
-                            totalItems={umkmList.length}
-                            totalReviews={totalReviews}
-                            onClearSearch={clearSearch}
-                        />
-
                         {popularUmkm.length > 0 && (
                             <div className="home-feed-list-head">
                                 <div>
@@ -528,10 +556,17 @@ const Home = () => {
                             </div>
                         )}
 
-                        <UMKMGrid items={visiblePopularUmkm} navigate={guardedNavigate} emptyLabel="Belum ada pilihan populer untuk ditampilkan." />
+                        <UMKMGrid
+                            items={visiblePopularUmkm}
+                            navigate={guardedNavigate}
+                            emptyLabel="Belum ada pilihan populer untuk ditampilkan."
+                            scrollable
+                        />
                     </div>
                 </div>
             </section>
+
+            <SiteFooter />
         </main>
     );
 };
@@ -563,6 +598,58 @@ const LoginRequiredNotice = ({ notice, onClose, onLogin, showAction = true }) =>
     </div>
 );
 
+const LandingIntro = ({ onRevealStart, onComplete }) => {
+    const [isLeaving, setIsLeaving] = useState(false);
+
+    useEffect(() => {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const leaveTimer = window.setTimeout(() => {
+            setIsLeaving(true);
+            onRevealStart();
+        }, reduceMotion ? 1500 : 3000);
+        const completeTimer = window.setTimeout(() => {
+            onComplete();
+        }, reduceMotion ? 1750 : 3950);
+
+        return () => {
+            window.clearTimeout(leaveTimer);
+            window.clearTimeout(completeTimer);
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [onComplete, onRevealStart]);
+
+    return (
+        <div
+            className={isLeaving ? 'landing-loader is-leaving' : 'landing-loader'}
+            role="status"
+            aria-live="polite"
+            aria-label="Plus Review sedang disiapkan"
+        >
+            <span className="landing-loader-topline" aria-hidden="true" />
+
+            <div className="landing-loader-content">
+                <div className="landing-loader-brand">
+                    <BrandLogo showSubtitle={false} />
+                </div>
+
+                <div className="landing-loader-copy">
+                    <strong>Pengalaman Plus Review segera dimulai</strong>
+                    <span>Rekomendasi terbaik kampus sedang disiapkan khusus untukmu.</span>
+                </div>
+
+                <span className="landing-loader-progress" aria-hidden="true">
+                    <span />
+                </span>
+            </div>
+
+            <small className="landing-loader-status">Plus Review</small>
+        </div>
+    );
+};
+
 const GuestLanding = ({
     latestItem,
     stats,
@@ -572,6 +659,52 @@ const GuestLanding = ({
     onLogin,
     onRegister,
 }) => {
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+
+        const revealSelectors = [
+            '.landing-hero-note',
+            '.landing-category-rail',
+            '.landing-section-head',
+            '.landing-feature-card',
+            '.landing-flow-head',
+            '.landing-step-card',
+            '.landing-preview-copy',
+            '.landing-preview-board',
+            '.landing-mini-card',
+            '.landing-final-cta',
+        ];
+        const elements = Array.from(document.querySelectorAll(revealSelectors.join(',')));
+
+        elements.forEach((element, index) => {
+            element.classList.add('landing-scroll-reveal');
+            element.style.setProperty('--landing-reveal-delay', `${Math.min((index % 5) * 55, 220)}ms`);
+        });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
+            });
+        }, {
+            rootMargin: '0px 0px -10% 0px',
+            threshold: 0.14,
+        });
+
+        elements.forEach((element) => observer.observe(element));
+
+        return () => {
+            observer.disconnect();
+            elements.forEach((element) => {
+                element.classList.remove('landing-scroll-reveal', 'is-visible');
+                element.style.removeProperty('--landing-reveal-delay');
+            });
+        };
+    }, []);
+
     const latestName = latestItem?.nama_umkm || 'UMKM kampus pilihan';
     const latestImage = latestItem ? getImagePath(latestItem) : LANDING_PREVIEW_IMAGE;
 
@@ -592,8 +725,11 @@ const GuestLanding = ({
                 </button>
 
                 <div className="landing-nav-actions">
-                    <button type="button" onClick={scrollToPreview}>Fitur</button>
-                    <button type="button" onClick={() => onRequireLogin('membuka feed rekomendasi')}>Feed</button>
+                    <button className="landing-nav-feature" type="button" onClick={scrollToPreview}>
+                        <Compass aria-hidden="true" />
+                        <span>Fitur</span>
+                    </button>
+                    <button className="landing-nav-feed" type="button" onClick={() => onRequireLogin('membuka feed rekomendasi')}>Feed</button>
                     <button className="landing-nav-login" type="button" onClick={onLogin}>Masuk</button>
                     <button className="landing-nav-register" type="button" onClick={onRegister}>Daftar</button>
                 </div>
@@ -675,7 +811,7 @@ const GuestLanding = ({
                                         onClick={() => onRequireLogin(`membuka kategori ${category.label}`)}
                                     >
                                         <span className="landing-category-image">
-                                            <img src={category.imageUrl} alt="" referrerPolicy="no-referrer" />
+                                            <img src={category.imageUrl} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                                         </span>
                                             <span className="landing-category-copy">
                                                 <strong>{category.label}</strong>
@@ -752,7 +888,7 @@ const GuestLanding = ({
 
                 <div className="landing-preview-board" aria-label="Preview tampilan feed">
                     <article className="landing-preview-card is-large">
-                        <img src={LANDING_PREVIEW_IMAGE} alt="" />
+                        <img src={LANDING_PREVIEW_IMAGE} alt="" loading="lazy" decoding="async" />
                         <div className="landing-preview-floating" aria-hidden="true">
                             <span>5.0</span>
                             <small>review</small>
@@ -858,48 +994,48 @@ const SectionHeader = ({ title, subtitle, action, onAction, eyebrow = 'Direkomen
 );
 
 const MyUMKMPanel = ({ items, allItems, isLoggedIn, navigate, onRequireLogin }) => {
-    const visibleItems = items.slice(0, MY_UMKM_PREVIEW_LIMIT);
+    const visibleItems = items.slice(0, SAVED_UMKM_PREVIEW_LIMIT);
     const restCount = Math.max(items.length - visibleItems.length, 0);
 
     return (
-        <aside id="umkm-saya" className="home-my-panel" aria-label="UMKM saya">
+        <aside id="umkm-saya" className="home-my-panel" aria-label="UMKM disimpan">
             <div className="home-my-head">
-                <span>UMKM Saya</span>
-                <strong>{isLoggedIn ? `${items.length} UMKM milikmu` : 'Masuk untuk melihat'}</strong>
+                <span>UMKM Disimpan</span>
+                <strong>{isLoggedIn ? `${items.length} UMKM tersimpan` : 'Masuk untuk melihat'}</strong>
                 <p>
                     {isLoggedIn
-                        ? 'Kelola UMKM yang kamu tambahkan dari halaman detail masing-masing.'
-                        : 'Login dulu agar UMKM yang kamu input bisa muncul di sini.'}
+                        ? 'Simpanan terbaru dari tombol Simpan nanti akan tampil otomatis di sini.'
+                        : 'Login dulu agar UMKM yang kamu simpan bisa muncul di sini.'}
                 </p>
             </div>
 
             {isLoggedIn && visibleItems.length > 0 ? (
                 <div className="home-my-list">
                     {visibleItems.map((item) => (
-                        <button key={`mine-${item.id}`} type="button" onClick={() => navigate(`/umkm/${item.id}`)}>
-                            <img src={getImagePath(item)} alt="" />
+                        <button key={`saved-${item.id}`} type="button" onClick={() => navigate(`/umkm/${item.id}`)}>
+                            <img src={getImagePath(item)} alt="" loading="lazy" decoding="async" />
                             <span>
                                 <strong>{item.nama_umkm}</strong>
-                                <small>{item.jam_operasional || item.jenis_makanan || 'Jam belum diatur'}</small>
+                                <small>{item.savedAt ? `Disimpan terbaru` : item.jam_operasional || item.jenis_makanan || 'Tersimpan'}</small>
                             </span>
-                            <em>Kelola</em>
+                            <em>Buka</em>
                         </button>
                     ))}
                 </div>
             ) : (
                 <div className="home-my-empty">
-                    <strong>{isLoggedIn ? 'Belum ada UMKM milikmu' : 'Akun belum masuk'}</strong>
+                    <strong>{isLoggedIn ? 'Belum ada UMKM disimpan' : 'Akun belum masuk'}</strong>
                     <span>
                         {isLoggedIn
-                            ? 'Tambahkan UMKM pertama agar tampil di panel ini.'
-                            : 'Setelah login, UMKM yang kamu input akan tampil sebagai daftar personal.'}
+                            ? 'Tekan Simpan nanti di detail UMKM agar tampil di panel ini.'
+                            : 'Setelah login, UMKM yang kamu simpan akan tampil sebagai daftar personal.'}
                     </span>
                 </div>
             )}
 
             {isLoggedIn && restCount > 0 && (
-                <button className="home-my-more-button" type="button" onClick={() => navigate('/umkm-saya')}>
-                    Lihat semua UMKM saya
+                <button className="home-my-more-button" type="button" onClick={() => navigate('/tersimpan')}>
+                    Lihat semua UMKM disimpan
                     <span>+{restCount} lainnya</span>
                 </button>
             )}
@@ -909,11 +1045,11 @@ const MyUMKMPanel = ({ items, allItems, isLoggedIn, navigate, onRequireLogin }) 
                 type="button"
                 onClick={() => (
                     isLoggedIn
-                        ? navigate('/tambah')
-                        : onRequireLogin('menambahkan dan mengelola UMKM milikmu')
+                        ? navigate('/tersimpan')
+                        : onRequireLogin('melihat UMKM yang kamu simpan')
                 )}
             >
-                {isLoggedIn ? 'Tambah UMKM Baru' : 'Login untuk Kelola'}
+                {isLoggedIn ? 'Buka UMKM Disimpan' : 'Login untuk Melihat'}
             </button>
 
             <NearbyUMKMFinder
@@ -975,7 +1111,7 @@ const NearbyUMKMFinder = ({ allItems, isLoggedIn, navigate, onRequireLogin }) =>
                     longitude: position.coords.longitude,
                 });
                 setLocationStatus('allowed');
-                setLocationMessage('Lokasi aktif. Rekomendasi diurutkan dari yang paling dekat.');
+                setLocationMessage('Lokasi Aktif, Rekomendasi Terdekat di sekitar.');
             },
             (error) => {
                 setLocationStatus('denied');
@@ -1034,10 +1170,10 @@ const NearbyUMKMFinder = ({ allItems, isLoggedIn, navigate, onRequireLogin }) =>
             <div className="home-nearby-results">
                 {userPosition && nearbyResults.length > 0 ? nearbyResults.map(({ item, distanceKm }) => (
                     <button key={`nearby-${item.id}`} className="home-nearby-card" type="button" onClick={() => navigate(`/umkm/${item.id}`)}>
-                        <img src={getImagePath(item)} alt="" />
+                        <img src={getImagePath(item)} alt="" loading="lazy" decoding="async" />
                         <span>
                             <strong>{item.nama_umkm}</strong>
-                            <small>{item.jenis_makanan || item.harga_range || 'Kuliner kampus'}</small>
+                            <small>{getResolvedCategoryLabel(item) || item.harga_range || 'Kuliner kampus'}</small>
                         </span>
                         <em>
                             <MapPin size={12} strokeWidth={2.7} aria-hidden="true" />
@@ -1070,12 +1206,13 @@ const NearbyUMKMFinder = ({ allItems, isLoggedIn, navigate, onRequireLogin }) =>
 const LatestFeedCard = ({ item, rating, reviews, summary, navigate }) => {
     const imagePath = getImagePath(item);
     const detailPhotos = getDetailImagePaths(item, 4);
+    const categoryLabel = getResolvedCategoryLabel(item);
 
     return (
         <article className="home-feed-spotlight home-latest-spotlight" onClick={() => navigate(`/umkm/${item.id}`)}>
             <div className="home-feed-spotlight-image">
-                <img src={imagePath} alt={item.nama_umkm} />
-                <span>{item.jenis_makanan || 'Kuliner'}</span>
+                <img src={imagePath} alt={item.nama_umkm} loading="lazy" decoding="async" />
+                <span>{categoryLabel}</span>
             </div>
 
             <div className={`home-feed-spotlight-body ${detailPhotos.length > 0 ? 'has-detail-photos' : 'has-no-detail-photos'}`}>
@@ -1105,11 +1242,11 @@ const LatestFeedCard = ({ item, rating, reviews, summary, navigate }) => {
                 </div>
 
                 {detailPhotos.length > 0 && (
-                    <div className="home-latest-detail-strip" aria-label="Preview foto detail UMKM">
+                    <div className={`home-latest-detail-strip is-count-${detailPhotos.length}`} aria-label="Preview foto detail UMKM">
                         <span>Detail foto</span>
                         <div>
                             {detailPhotos.map((photo, index) => (
-                                <img key={`${photo}-${index}`} src={photo} alt={`${item.nama_umkm} detail ${index + 1}`} />
+                                <img key={`${photo}-${index}`} src={photo} alt={`${item.nama_umkm} detail ${index + 1}`} loading="lazy" decoding="async" />
                             ))}
                         </div>
                     </div>
@@ -1131,82 +1268,6 @@ const LatestFeedCard = ({ item, rating, reviews, summary, navigate }) => {
         </article>
     );
 };
-
-const FeedOverview = ({ items, categories, totalItems, totalReviews, totalUsers, searchTerm, navigate, onClearSearch }) => {
-    const searchLabel = getSearchQueryLabel(searchTerm);
-
-    if (items.length === 0) {
-        return (
-            <div className="home-feed-overview is-empty">
-                <div className="home-feed-empty-copy">
-                    <span>Feed kosong</span>
-                    <strong>{searchLabel ? `Tidak ada hasil untuk "${searchLabel}"` : 'Belum ada rekomendasi di feed'}</strong>
-                    <p>
-                        {searchLabel
-                            ? 'Coba kata kunci lain atau hapus pencarian untuk melihat semua rekomendasi.'
-                            : 'Tambahkan UMKM pertama agar feed mulai hidup dan bisa direview.'}
-                    </p>
-                </div>
-                <button type="button" onClick={() => (searchLabel ? onClearSearch() : navigate('/tambah'))}>
-                    {searchLabel ? 'Hapus pencarian' : 'Tambah UMKM'}
-                </button>
-            </div>
-        );
-    }
-
-    const latestSideItems = [...items]
-        .sort((a, b) => getCreatedTime(b) - getCreatedTime(a))
-        .slice(0, 1);
-
-    return (
-        <div className="home-feed-overview home-feed-overview--summary">
-            <aside className="home-feed-side" aria-label="Ringkasan feed">
-                <div className="home-feed-pulse">
-                    <FeedMetric value={items.length} label="Tampil" />
-                    <FeedMetric value={totalItems} label="Total UMKM" />
-                    <FeedMetric value={totalReviews} label="Review" />
-                    <FeedMetric value={totalUsers} label="Pengguna" />
-                </div>
-
-                <div className="home-feed-categories">
-                    <span>Kategori aktif</span>
-                    <div>
-                        {categories.length > 0 ? categories.map((category) => (
-                            <button key={category.name} type="button">
-                                {category.name}
-                                <small>{category.count}</small>
-                            </button>
-                        )) : (
-                            <small>Belum ada kategori</small>
-                        )}
-                    </div>
-                </div>
-
-                {latestSideItems.length > 0 && (
-                    <div className="home-feed-mini-list">
-                        <span>Update terbaru</span>
-                        {latestSideItems.map((item) => (
-                            <button key={item.id} type="button" onClick={() => navigate(`/umkm/${item.id}`)}>
-                                <img src={getImagePath(item)} alt="" />
-                                <span>
-                                    <strong>{item.nama_umkm}</strong>
-                                    <small>{item.jam_operasional || item.jenis_makanan || item.harga_range || 'Kuliner'}</small>
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </aside>
-        </div>
-    );
-};
-
-const FeedMetric = ({ value, label }) => (
-    <div className="home-feed-metric">
-        <strong>{value}</strong>
-        <span>{label}</span>
-    </div>
-);
 
 const CategoryFeedPanel = ({ feeds, isLoggedIn, navigate, onRequireLogin }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -1260,7 +1321,7 @@ const CategoryFeedPanel = ({ feeds, isLoggedIn, navigate, onRequireLogin }) => {
                                     onClick={() => navigate(`/kategori/${feed.key}`)}
                                 >
                                     <div className="home-category-tile-image">
-                                        <img src={feed.imageUrl} alt={feed.label} referrerPolicy="no-referrer" />
+                                        <img src={feed.imageUrl} alt={feed.label} referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                                         <span>{feed.items.length} UMKM</span>
                                     </div>
 
@@ -1293,7 +1354,7 @@ const CategoryFeedPanel = ({ feeds, isLoggedIn, navigate, onRequireLogin }) => {
     );
 };
 
-const UMKMGrid = ({ items, navigate, emptyLabel, compact = false }) => {
+const UMKMGrid = ({ items, navigate, emptyLabel, compact = false, scrollable = false }) => {
     if (items.length === 0) {
         return (
             <div className="home-empty">
@@ -1304,7 +1365,7 @@ const UMKMGrid = ({ items, navigate, emptyLabel, compact = false }) => {
     }
 
     return (
-        <div className={compact ? 'home-grid is-compact' : 'home-grid'}>
+        <div className={`home-grid${compact ? ' is-compact' : ''}${scrollable ? ' is-scrollable' : ''}`}>
             {items.map((item) => (
                 <UMKMCard key={`${compact ? 'recent' : 'popular'}-${item.id}`} item={item} navigate={navigate} />
             ))}
@@ -1317,6 +1378,7 @@ const UMKMCard = ({ item, navigate }) => {
     const reviews = getReviews(item);
     const totalReviews = reviews.length;
     const calculatedAvgRating = formatRating(getAverageRating(item));
+    const categoryLabel = getResolvedCategoryLabel(item);
     const detailText = getShortText(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Informasi belum lengkap',
@@ -1326,8 +1388,8 @@ const UMKMCard = ({ item, navigate }) => {
     return (
         <article className="home-card" onClick={() => navigate(`/umkm/${item.id}`)}>
             <div className="home-card-image">
-                <img src={imagePath} alt={item.nama_umkm} />
-                <span>{item.jenis_makanan || 'Kuliner'}</span>
+                <img src={imagePath} alt={item.nama_umkm} loading="lazy" decoding="async" />
+                <span>{categoryLabel}</span>
             </div>
 
             <div className="home-card-body">

@@ -21,11 +21,17 @@
 body:has(.login-page),
 body:has(.register-page) {
   overflow: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 .login-page button,
 .login-page input {
   font: inherit;
+}
+
+.login-page,
+.login-page * {
+  box-sizing: border-box;
 }
 
 .login-panel {
@@ -387,22 +393,52 @@ body:has(.register-page) {
   gap: 8px;
 }
 
-.login-form label span {
+.login-form label > span,
+.password-field-group label > span {
   color: #3b372f;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.18;
 }
 
 .login-form input {
   width: 100%;
   min-height: 48px;
-  box-sizing: border-box;
   border: 1px solid rgba(24, 23, 20, 0.12);
   border-radius: 8px;
   background: #fbfaf6;
   color: #181714;
+  font-size: 16px;
   outline: none;
   padding: 0 14px;
+}
+
+.auth-input-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.auth-input-shell > svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  color: #6f7a6f;
+  pointer-events: none;
+  stroke-width: 2.3;
+  transform: translateY(-50%);
+}
+
+.auth-input-shell input {
+  padding-left: 44px;
+}
+
+.auth-input-shell:focus-within > svg {
+  color: #1f3f2f;
 }
 
 .login-form input:focus {
@@ -416,6 +452,7 @@ body:has(.register-page) {
 }
 
 .password-field input {
+  padding-left: 44px;
   padding-right: 50px;
 }
 
@@ -496,6 +533,110 @@ body:has(.register-page) {
 
 .login-submit:hover {
   background: #173326;
+}
+
+.login-form-assist {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: -3px;
+}
+
+.login-form-assist a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  border-bottom: 3px solid currentColor;
+  padding-bottom: 2px;
+}
+
+.login-form-assist a svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.4;
+}
+
+.login-form-assist a,
+.auth-text-action,
+.auth-development-link {
+  color: #1f3f2f;
+  font-size: 13px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.login-form-assist + .login-submit {
+  margin-top: -1px;
+}
+
+.login-form-assist a:hover,
+.auth-development-link:hover {
+  color: #8a5a00;
+  text-decoration: none;
+}
+
+.auth-flow-card {
+  position: relative;
+}
+
+.auth-flow-symbol {
+  position: absolute;
+  top: 28px;
+  right: 30px;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(31, 63, 47, 0.12);
+  border-radius: 8px;
+  background: #edf5ee;
+  color: #1f3f2f;
+}
+
+.auth-flow-symbol svg {
+  width: 22px;
+  height: 22px;
+}
+
+.auth-flow-form {
+  margin-top: 18px;
+}
+
+.auth-code-shell input {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 6px;
+}
+
+.auth-text-action {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  margin-top: 13px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-text-action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.auth-text-action:disabled {
+  color: #918a7d;
+  cursor: default;
+}
+
+.auth-development-link {
+  display: inline-flex;
+  width: max-content;
+  margin-top: 14px;
+  border-radius: 8px;
+  background: #eef4ed;
+  padding: 9px 12px;
 }
 
 .register-page .auth-home-button {
@@ -607,39 +748,107 @@ body:has(.register-page) {
 }
 
 @media (max-width: 520px) {
+  html:has(.login-page),
+  body:has(.login-page),
+  body:has(.register-page),
+  body:has(.login-page) #root,
+  body:has(.register-page) #root {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
   .login-page {
-    padding: 0;
+    display: grid;
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: none;
+    height: 100dvh;
+    min-height: 100dvh;
+    margin-left: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding: 10px;
     background:
-      linear-gradient(120deg, rgba(10, 16, 12, 0.82), rgba(10, 16, 12, 0.38)),
+      radial-gradient(circle at 16% 0%, rgba(239, 184, 79, 0.22), transparent 28%),
+      linear-gradient(145deg, rgba(13, 27, 19, 0.86), rgba(23, 51, 38, 0.58)),
       url("https://i.pinimg.com/originals/ae/44/b7/ae44b7bcdb2fb7bf13cc56c78425680b.jpg");
     background-position: center;
     background-size: cover;
   }
 
   .login-panel {
-    height: 100svh;
-    grid-template-rows: minmax(180px, 31%) minmax(0, 1fr);
-    border: 0;
-    border-radius: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    height: calc(100dvh - 20px);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 24px;
+    background: #fffdf8;
+    box-shadow: 0 22px 55px rgba(8, 19, 13, 0.28);
   }
 
   .register-page .login-panel {
-    grid-template-rows: minmax(158px, 27%) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .login-visual {
-    min-height: 0;
-    padding: 18px 18px 14px;
+    min-height: 132px;
+    height: auto;
+    gap: 10px;
+    padding: 14px 16px 23px;
+    border-radius: 22px 22px 0 0;
+    background:
+      linear-gradient(145deg, rgba(17, 45, 30, 0.9) 0%, rgba(31, 63, 47, 0.7) 58%, rgba(18, 33, 25, 0.82) 100%),
+      url("https://i.pinimg.com/originals/4e/00/81/4e0081e39eba9e34a4a573758f5238de.jpg");
+    background-size: cover;
+    background-position: center 46%;
+  }
+
+  .login-visual::after {
+    right: 16px;
+    bottom: 18px;
+    width: 70px;
+    height: 70px;
+    border-radius: 18px;
+    opacity: 0.7;
+  }
+
+  .login-brand {
+    transform: scale(0.9);
+    transform-origin: left top;
+  }
+
+  .register-page .login-visual {
+    min-height: 122px;
+    padding-bottom: 20px;
   }
 
   .login-visual-copy {
     align-self: end;
+    max-width: 100%;
+  }
+
+  .login-visual-copy span {
+    font-size: 10.5px;
+    padding: 6px 9px;
+    margin-bottom: 2px;
   }
 
   .login-visual-copy h1 {
-    margin: 10px 0 8px;
-    font-size: clamp(22px, 7vw, 25px);
-    line-height: 1.08;
+    max-width: 310px;
+    margin: 12px 0 0;
+    font-size: clamp(20px, 6.4vw, 24px);
+    line-height: 1.1;
+  }
+
+  .register-page .login-visual-copy h1 {
+    margin-top: 13px;
   }
 
   .login-visual-copy p {
@@ -652,16 +861,37 @@ body:has(.register-page) {
 
   .login-card {
     justify-content: start;
-    padding: 16px 18px 18px;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 22px 22px 0 0;
+    background:
+      linear-gradient(180deg, #fffdf8 0%, #fbf6ed 100%);
+    box-shadow: 0 -18px 38px rgba(18, 24, 20, 0.12);
+    padding: 16px 16px max(18px, env(safe-area-inset-bottom));
+    transform: translateY(-10px);
+  }
+
+  .register-page .login-card {
+    justify-content: start;
+    padding-top: 14px;
   }
 
   .login-card-header h2 {
-    margin: 9px 0 6px;
-    font-size: clamp(28px, 9vw, 31px);
+    margin: 8px 0 5px;
+    font-size: clamp(25px, 7.8vw, 29px);
+    line-height: 1.04;
+  }
+
+  .login-card-header span {
+    font-size: 10.5px;
+    padding: 6px 9px;
   }
 
   .login-card-header p {
-    font-size: 14px;
+    max-width: 300px;
+    font-size: 12.5px;
+    line-height: 1.45;
   }
 
   .register-page .login-card-header p {
@@ -681,37 +911,184 @@ body:has(.register-page) {
   }
 
   .login-form {
-    gap: 10px;
-    margin-top: 14px;
+    gap: 9px;
+    margin-top: 13px;
   }
 
   .register-page .login-form {
-    gap: 8px;
-    margin-top: 10px;
+    gap: 7px;
+    margin-top: 9px;
   }
 
   .login-form label {
     gap: 6px;
   }
 
+  .login-form label > span,
+  .password-field-group label > span {
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
   .login-form input {
-    min-height: 44px;
+    min-height: 43px;
+    border-color: rgba(24, 23, 20, 0.1);
+    background: rgba(255, 255, 255, 0.78);
+    font-size: 16px;
+    line-height: 1.2;
+    padding-inline: 12px;
+    transform: translateZ(0);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
+  }
+
+  .auth-input-shell > svg {
+    left: 12px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .auth-input-shell input {
+    padding-left: 39px;
+    padding-right: 12px;
+  }
+
+  .login-form input:focus {
+    box-shadow: 0 0 0 3px rgba(31, 63, 47, 0.09);
+  }
+
+  .password-field input {
+    padding-left: 39px;
+    padding-right: 44px;
+  }
+
+  .password-toggle {
+    right: 5px;
+    width: 33px;
+    height: 33px;
+  }
+
+  .password-toggle span {
+    width: 18px;
+    height: 11px;
+  }
+
+  .password-toggle span::after {
+    width: 23px;
   }
 
   .login-submit {
-    min-height: 46px;
+    min-height: 44px;
+    margin-top: 3px;
+    border-radius: 10px;
+    font-size: 14px;
+    box-shadow: 0 14px 26px rgba(31, 63, 47, 0.18);
+  }
+
+  .login-form-assist {
+    margin-top: -1px;
+  }
+
+  .login-form-assist a,
+  .auth-text-action,
+  .auth-development-link {
+    font-size: 12px;
+  }
+
+  .auth-flow-page .login-visual {
+    min-height: 120px;
+  }
+
+  .auth-flow-page .login-card {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .auth-flow-symbol {
+    top: 14px;
+    right: 16px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .auth-flow-symbol svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .auth-flow-page .login-card-header {
+    padding-right: 46px;
+  }
+
+  .auth-flow-page .login-card-header p {
+    display: block;
+    font-size: 11.5px;
+  }
+
+  .auth-flow-form {
+    margin-top: 11px;
+  }
+
+  .auth-code-shell input {
+    font-size: 19px;
+    letter-spacing: 5px;
   }
 
   .register-page .login-submit {
-    min-height: 42px;
+    min-height: 41px;
+    margin-top: 1px;
   }
 
   .login-footer {
-    margin-top: 12px;
+    margin-top: 10px;
+    font-size: 12.5px;
+    line-height: 1.35;
   }
 
   .register-page .login-footer {
-    margin-top: 9px;
+    margin-top: 8px;
+  }
+
+  .auth-notice {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+    border-radius: 10px;
+    padding: 8px 9px;
+    box-shadow: 0 10px 22px rgba(35, 34, 29, 0.045);
+  }
+
+  .auth-notice-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  .auth-notice strong {
+    font-size: 12px;
+  }
+
+  .auth-notice p {
+    font-size: 11.5px;
+    line-height: 1.3;
+    -webkit-line-clamp: 2;
+  }
+
+  .register-page .auth-notice {
+    margin-top: 8px;
+    padding: 7px 9px;
+  }
+
+  .register-page .password-strength--compact {
+    grid-template-columns: minmax(72px, 1fr) auto auto;
+    gap: 5px;
+    margin-top: 0;
+  }
+
+  .register-page .password-strength--compact .password-strength-meter {
+    min-width: 72px;
+  }
+
+  .register-page .password-strength--compact .password-strength-label {
+    font-size: 9.5px;
   }
 }
 
@@ -786,6 +1163,7 @@ body:has(.register-page) {
 
   .register-page .login-form input {
     min-height: 39px;
+    font-size: 16px;
   }
 
   .register-page .password-toggle {
@@ -816,6 +1194,9 @@ body:has(.register-page) {
   .login-panel,
   .register-page .login-panel {
     grid-template-rows: 1fr;
+    height: calc(100dvh - 20px);
+    min-height: 0;
+    overflow: hidden;
   }
 
   .login-visual {
@@ -823,7 +1204,9 @@ body:has(.register-page) {
   }
 
   .login-card {
-    justify-content: center;
+    justify-content: start;
+    overflow: hidden;
+    transform: none;
   }
 }
 
@@ -840,22 +1223,22 @@ body:has(.register-page) {
 
 @media (max-width: 520px) and (max-height: 700px) {
   .register-page .login-panel {
-    grid-template-rows: minmax(118px, 22%) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .register-page .login-visual-copy span,
   .register-page .login-card-header span,
   .register-page .login-card-header p {
     display: none;
   }
 
   .register-page .login-visual-copy h1 {
-    margin: 0;
-    font-size: 21px;
+    margin: 8px 0 0;
+    font-size: 20px;
+    line-height: 1.12;
   }
 
   .register-page .login-card {
-    padding-block: 12px;
+    padding-block: 12px max(18px, env(safe-area-inset-bottom));
   }
 
   .register-page .auth-home-button {
@@ -905,6 +1288,7 @@ body:has(.register-page) {
 
   .register-page .login-form input {
     min-height: 39px;
+    font-size: 16px;
   }
 
   .register-page .password-strength--compact {
@@ -943,6 +1327,7 @@ body:has(.register-page) {
 
   .login-form input {
     min-height: 42px;
+    font-size: 16px;
   }
 }
 

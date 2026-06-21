@@ -182,6 +182,12 @@
   padding: 12px 14px;
 }
 
+.notification-notice.is-success {
+  border-color: rgba(31, 63, 47, 0.18);
+  background: #edf7ef;
+  color: #1f3f2f;
+}
+
 .notification-list {
   display: grid;
   gap: 9px;
@@ -389,6 +395,12 @@
   border-color: #1f3f2f;
   background: #1f3f2f;
   color: #fff;
+}
+
+.notification-card-footer button.is-danger {
+  border-color: rgba(169, 54, 35, 0.16);
+  background: #fff7f4;
+  color: #a93623;
 }
 
 .notification-state {

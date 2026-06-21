@@ -53,6 +53,22 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+::selection {
+  background: rgba(239, 184, 79, 0.34);
+  color: #173326;
+}
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(239, 184, 79, 0.46);
+  outline-offset: 3px;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 #root {
   width: 100%;
   max-width: none;
@@ -72,6 +88,18 @@ svg,
 video,
 canvas {
   max-width: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 button,

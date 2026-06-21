@@ -1,3 +1,4 @@
+import { Star } from 'lucide-react';
 import './BrandLogo.css';
 
 const BrandLogo = ({ tone = 'dark', showSubtitle = true }) => (
@@ -8,7 +9,13 @@ const BrandLogo = ({ tone = 'dark', showSubtitle = true }) => (
         </span>
 
         <span className="brand-logo-copy">
-            <strong>Plus Review</strong>
+            <span className="brand-logo-name">
+                <strong>Plus Review</strong>
+                <span className="brand-logo-star" aria-hidden="true">
+                    <Star className="brand-logo-star-base" />
+                    <Star className="brand-logo-star-shine" />
+                </span>
+            </span>
             {showSubtitle && <small>UMKM Food Review</small>}
         </span>
     </span>

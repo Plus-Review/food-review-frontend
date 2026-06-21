@@ -520,6 +520,7 @@ const UMKMDetail = () => {
     const [manageNotice, setManageNotice] = useState(null);
     const [savedUmkmIds, setSavedUmkmIds] = useState([]);
     const [isSavingUmkm, setIsSavingUmkm] = useState(false);
+    const [expandedDescriptionId, setExpandedDescriptionId] = useState(null);
     const editNewDetailPhotosRef = useRef([]);
     const reviewPhotosRef = useRef([]);
     const editReviewPhotosRef = useRef([]);
@@ -678,6 +679,8 @@ const UMKMDetail = () => {
     const price = umkm?.harga_range || 'Harga belum diatur';
     const operationalHours = umkm?.jam_operasional || 'Jam operasional belum diatur';
     const description = umkm?.deskripsi || 'Deskripsi UMKM belum tersedia. Kamu tetap bisa melihat lokasi, harga, dan review yang sudah masuk.';
+    const isDescriptionLong = description.trim().length > 170;
+    const isDescriptionExpanded = expandedDescriptionId === String(id);
     const address = umkm?.alamat_teks || 'Alamat belum ditambahkan';
     const primaryImage = allImages[0] || FALLBACK_IMAGE;
     const detailImages = allImages.slice(1);
@@ -1193,8 +1196,17 @@ const UMKMDetail = () => {
                     <div className="detail-hero-copy">
                         <span className="detail-overline">Detail rekomendasi UMKM</span>
                         <h1>{umkm.nama_umkm}</h1>
-                        <div className="detail-hero-description">
+                        <div className={isDescriptionExpanded ? 'detail-hero-description is-expanded' : 'detail-hero-description'}>
                             <p>{description}</p>
+                            {isDescriptionLong && (
+                                <button
+                                    className="detail-description-toggle"
+                                    type="button"
+                                    onClick={() => setExpandedDescriptionId((current) => (current === String(id) ? null : String(id)))}
+                                >
+                                    {isDescriptionExpanded ? 'Tutup deskripsi' : 'Lihat selengkapnya'}
+                                </button>
+                            )}
                         </div>
 
                         <div className="detail-hero-actions">

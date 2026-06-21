@@ -9,6 +9,7 @@ import {
     MailOpen,
     RefreshCw,
     Store,
+    Trash2,
     XCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -57,6 +58,7 @@ const Notifications = () => {
     const [notifications, setNotifications] = useState([]);
     const [summary, setSummary] = useState({ total: 0, unread: 0 });
     const [isLoading, setIsLoading] = useState(isLoggedIn);
+    const [deletingId, setDeletingId] = useState(null);
     const [notice, setNotice] = useState(null);
 
     const loadNotifications = async () => {
@@ -126,6 +128,31 @@ const Notifications = () => {
                 type: 'error',
                 message: error.response?.data?.message || 'Gagal menandai semua notifikasi.',
             });
+        }
+    };
+
+    const deleteNotification = async (notification) => {
+        if (!notification || deletingId) return;
+
+        setDeletingId(notification.id);
+        setNotice(null);
+
+        try {
+            await apiClient.delete(`/notifications/${notification.id}`);
+            setNotifications((current) => current.filter((item) => Number(item.id) !== Number(notification.id)));
+            setSummary((current) => ({
+                total: Math.max(0, Number(current.total || 0) - 1),
+                unread: Math.max(0, Number(current.unread || 0) - (notification.isRead ? 0 : 1)),
+            }));
+            setNotice({ type: 'success', message: 'Notifikasi berhasil dihapus.' });
+            window.dispatchEvent(new Event('notifications-updated'));
+        } catch (error) {
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Gagal menghapus notifikasi.',
+            });
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -213,6 +240,8 @@ const Notifications = () => {
                                         notification={notification}
                                         onRead={() => markRead(notification)}
                                         onOpen={() => openUmkm(notification)}
+                                        onDelete={() => deleteNotification(notification)}
+                                        isDeleting={Number(deletingId) === Number(notification.id)}
                                     />
                                 ))}
                             </div>
@@ -240,7 +269,7 @@ const NotificationStat = ({ icon: Icon, value, label }) => (
     </article>
 );
 
-const NotificationCard = ({ notification, onRead, onOpen }) => {
+const NotificationCard = ({ notification, onRead, onOpen, onDelete, isDeleting }) => {
     const meta = getMeta(notification.type);
     const Icon = meta.icon;
     const note = notification.metadata?.note || notification.umkm?.verification_note || '';
@@ -248,7 +277,7 @@ const NotificationCard = ({ notification, onRead, onOpen }) => {
     return (
         <article className={notification.isRead ? 'notification-card' : 'notification-card is-unread'}>
             <div className="notification-card-image">
-                <img src={getImagePath(notification)} alt="" />
+                <img src={getImagePath(notification)} alt="" loading="lazy" decoding="async" />
                 <span className={`notification-status is-${meta.tone}`}>
                     <Icon aria-hidden="true" />
                     {meta.label}
@@ -291,6 +320,10 @@ const NotificationCard = ({ notification, onRead, onOpen }) => {
                                 <ArrowRight aria-hidden="true" />
                             </button>
                         )}
+                        <button className="is-danger" type="button" onClick={onDelete} disabled={isDeleting}>
+                            <Trash2 aria-hidden="true" />
+                            {isDeleting ? 'Menghapus' : 'Hapus'}
+                        </button>
                     </div>
                 </div>
             </div>

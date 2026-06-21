@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import SiteFooter from '../components/SiteFooter';
 import { getUploadUrl } from '../config/api';
 import { getSearchQueryLabel, rankUmkmSearchResults } from '../utils/umkmSearch';
 import './CategoryFeed.css';
@@ -234,6 +235,7 @@ const MyUMKM = () => {
                     </>
                 )}
             </section>
+            <SiteFooter />
         </main>
     );
 };
@@ -257,7 +259,7 @@ const MyUMKMCard = ({ item, navigate }) => {
     return (
         <article className="my-umkm-card" onClick={() => navigate(`/umkm/${item.id}`)}>
             <div className="my-umkm-image">
-                <img src={getImagePath(item)} alt={item.nama_umkm} />
+                <img src={getImagePath(item)} alt={item.nama_umkm} loading="lazy" decoding="async" />
                 <span>{item.jenis_makanan || 'Kuliner'}</span>
             </div>
 

@@ -11,7 +11,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
+import SiteFooter from '../components/SiteFooter';
 import { getUploadUrl } from '../config/api';
+import { getResolvedCategoryLabel } from '../utils/categoryFeeds';
 import './CategoryFeed.css';
 import './SavedUMKM.css';
 
@@ -165,6 +167,7 @@ const SavedUMKM = () => {
                     </div>
                 )}
             </section>
+            <SiteFooter />
         </main>
     );
 };
@@ -180,6 +183,7 @@ const SavedStat = ({ icon: Icon, value, label }) => (
 const SavedCard = ({ item, navigate, onRemove }) => {
     const reviews = getReviews(item);
     const rating = formatRating(getAverageRating(item));
+    const categoryLabel = getResolvedCategoryLabel(item);
     const summary = getTextPreview(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Detail UMKM belum lengkap.'
@@ -193,8 +197,8 @@ const SavedCard = ({ item, navigate, onRemove }) => {
     return (
         <article className="category-umkm-card saved-umkm-card" onClick={() => navigate(`/umkm/${item.id}`)}>
             <div className="category-umkm-image saved-card-image">
-                <img src={getImagePath(item)} alt={item.nama_umkm} />
-                <span>{item.jenis_makanan || 'Kuliner'}</span>
+                <img src={getImagePath(item)} alt={item.nama_umkm} loading="lazy" decoding="async" />
+                <span>{categoryLabel}</span>
             </div>
 
             <div className="category-umkm-body saved-card-body">
