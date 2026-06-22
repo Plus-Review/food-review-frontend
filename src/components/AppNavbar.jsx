@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import { getUploadUrl } from '../config/api';
 import BrandLogo from './BrandLogo';
+import ProfilePhotoViewer from './ProfilePhotoViewer';
 import './AppNavbar.css';
 
 const getCachedUser = () => {
@@ -42,6 +43,7 @@ const AppNavbar = ({
     const navigate = useNavigate();
     const [showDropdown, setShowDropdown] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showProfilePhoto, setShowProfilePhoto] = useState(false);
     const [profile, setProfile] = useState(() => (isLoggedIn ? getCachedUser() : null));
     const [ownedUmkmCount, setOwnedUmkmCount] = useState(0);
     const [savedUmkmCount, setSavedUmkmCount] = useState(0);
@@ -239,6 +241,15 @@ const AppNavbar = ({
         navigate('/profile');
     };
 
+    const openProfilePhoto = () => {
+        closeMenus();
+        if (!profileImageUrl) {
+            navigate('/profile');
+            return;
+        }
+        setShowProfilePhoto(true);
+    };
+
     const goSavedUmkm = () => {
         closeMenus();
         navigate('/tersimpan');
@@ -263,6 +274,7 @@ const AppNavbar = ({
     };
 
     return (
+        <>
         <nav className="app-nav" aria-label="Navigasi utama">
             <button className="app-brand" type="button" onClick={goHome}>
                 <BrandLogo />
@@ -385,41 +397,58 @@ const AppNavbar = ({
             <div className="app-nav-account">
                 {isLoggedIn ? (
                     <>
-                        <button
+                        <div
                             className={[
                                 'app-avatar',
                                 showDropdown ? 'is-open' : '',
                                 profileImageUrl ? 'has-photo' : '',
                             ].filter(Boolean).join(' ')}
-                            type="button"
-                            aria-label="Menu akun"
-                            aria-expanded={showDropdown}
-                            onClick={() => {
-                                setShowMobileMenu(false);
-                                setShowDropdown((value) => !value);
-                            }}
                         >
-                            {profileImageUrl ? (
-                                <img src={profileImageUrl} alt={profileName || 'Foto profil'} />
-                            ) : (
-                                <span className="app-avatar-initial">{profileInitial}</span>
-                            )}
-                            <span className="app-avatar-copy">
-                                <small>Profile</small>
-                                <strong>{profileName}</strong>
-                            </span>
-                            <ChevronDown className="app-avatar-caret" aria-hidden="true" />
-                        </button>
+                            <button
+                                className="app-avatar-photo-button"
+                                type="button"
+                                aria-label={profileImageUrl ? 'Lihat foto profile' : 'Tambahkan foto profile'}
+                                title={profileImageUrl ? 'Lihat foto profile' : 'Tambahkan foto profile'}
+                                onClick={openProfilePhoto}
+                            >
+                                {profileImageUrl ? (
+                                    <img src={profileImageUrl} alt={profileName || 'Foto profil'} />
+                                ) : (
+                                    <span className="app-avatar-initial">{profileInitial}</span>
+                                )}
+                            </button>
+                            <button
+                                className="app-avatar-menu-button"
+                                type="button"
+                                aria-label="Buka menu akun"
+                                aria-expanded={showDropdown}
+                                onClick={() => {
+                                    setShowMobileMenu(false);
+                                    setShowDropdown((value) => !value);
+                                }}
+                            >
+                                <span className="app-avatar-copy">
+                                    <small>Profile</small>
+                                    <strong>{profileName}</strong>
+                                </span>
+                                <ChevronDown className="app-avatar-caret" aria-hidden="true" />
+                            </button>
+                        </div>
                         {showDropdown && (
                             <div className="app-dropdown">
                                 <div className="app-dropdown-profile">
-                                    <span className="app-dropdown-photo" aria-hidden="true">
+                                    <button
+                                        className="app-dropdown-photo"
+                                        type="button"
+                                        aria-label={profileImageUrl ? 'Lihat foto profile' : 'Tambahkan foto profile'}
+                                        onClick={openProfilePhoto}
+                                    >
                                         {profileImageUrl ? (
-                                            <img src={profileImageUrl} alt="" />
+                                            <img src={profileImageUrl} alt={profileName || 'Foto profil'} />
                                         ) : (
                                             <span>{profileInitial}</span>
                                         )}
-                                    </span>
+                                    </button>
                                     <div>
                                         <strong>{profileName || 'Akun Plus Review'}</strong>
                                         <small>{profile?.email || 'Kelola akunmu'}</small>
@@ -461,6 +490,19 @@ const AppNavbar = ({
                 )}
             </div>
         </nav>
+        {showProfilePhoto && profileImageUrl && (
+            <ProfilePhotoViewer
+                imageUrl={profileImageUrl}
+                name={profileName}
+                email={profile?.email}
+                onClose={() => setShowProfilePhoto(false)}
+                onEdit={() => {
+                    setShowProfilePhoto(false);
+                    goProfile();
+                }}
+            />
+        )}
+        </>
     );
 };
 

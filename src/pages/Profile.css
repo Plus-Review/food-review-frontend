@@ -124,6 +124,7 @@ body:has(.profile-page) {
 }
 
 .profile-photo-preview {
+  position: relative;
   display: grid;
   place-items: center;
   width: 62px;
@@ -133,7 +134,13 @@ body:has(.profile-page) {
   border-radius: 50%;
   background: #efb84f;
   color: #181714;
+  cursor: zoom-in;
+  padding: 0;
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+}
+
+.profile-photo-preview:disabled {
+  cursor: default;
 }
 
 .profile-photo-preview img {
@@ -142,9 +149,31 @@ body:has(.profile-page) {
   object-fit: cover;
 }
 
-.profile-photo-preview span {
+.profile-photo-initial {
   font-size: 24px;
   font-weight: 900;
+}
+
+.profile-photo-view-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(18, 35, 26, 0.64);
+  color: #fff;
+  opacity: 0;
+}
+
+.profile-photo-view-hint svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.4;
+}
+
+.profile-photo-preview:not(:disabled):hover .profile-photo-view-hint,
+.profile-photo-preview:not(:disabled):focus-visible .profile-photo-view-hint {
+  opacity: 1;
 }
 
 .profile-photo-card strong,
@@ -621,7 +650,7 @@ body:has(.profile-page) {
     border-width: 2px;
   }
 
-  .profile-photo-preview span {
+  .profile-photo-initial {
     font-size: 17px;
   }
 
@@ -836,6 +865,7 @@ body:has(.profile-page) {
   }
 
   .profile-upload,
+  .profile-photo-view-hint,
   .profile-primary,
   .profile-secondary,
   .profile-password-toggle,
@@ -847,6 +877,10 @@ body:has(.profile-page) {
   .profile-primary:hover,
   .profile-secondary:hover {
     transform: translateY(-1px);
+  }
+
+  .profile-photo-view-hint {
+    transition: opacity 180ms ease;
   }
 
   .profile-password-toggle:hover {

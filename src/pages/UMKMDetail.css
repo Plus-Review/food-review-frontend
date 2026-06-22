@@ -155,6 +155,27 @@
   display: none;
 }
 
+@media (min-width: 981px) {
+  .detail-hero-description p {
+    display: block;
+    overflow: visible;
+    text-align: left;
+    -webkit-line-clamp: unset;
+  }
+
+  .detail-hero-description {
+    max-height: 132px;
+    overflow-y: auto;
+    padding-right: 6px;
+    scrollbar-color: rgba(31, 63, 47, 0.28) transparent;
+    scrollbar-width: thin;
+  }
+
+  .detail-hero-description.is-short p {
+    width: min(100%, 38ch);
+  }
+}
+
 .detail-hero-actions {
   display: flex;
   flex-wrap: wrap;

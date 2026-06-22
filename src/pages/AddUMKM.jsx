@@ -8,6 +8,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 import './AddUMKM.css';
+import { optimizeImageFile, optimizeImageFiles } from '../utils/imageUpload';
 
 const DEFAULT_POSITION = [-4.01, 119.62];
 
@@ -151,7 +152,7 @@ const AddUMKM = () => {
         });
     };
 
-    const handleFileChange = (event) => {
+    const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (!file) {
             setImage(null);
@@ -159,11 +160,20 @@ const AddUMKM = () => {
             return;
         }
 
-        setImage(file);
-        setPreview(URL.createObjectURL(file));
+        try {
+            const optimizedFile = await optimizeImageFile(file, { maxBytes: 420 * 1024 });
+            setImage(optimizedFile);
+            setPreview(URL.createObjectURL(optimizedFile));
+        } catch {
+            showSubmitNotice({
+                type: 'warning',
+                title: 'Foto tidak dapat diproses',
+                message: 'Gunakan foto JPG, PNG, atau WEBP lain lalu coba kembali.',
+            });
+        }
     };
 
-    const handleDetailPhotoChange = (event) => {
+    const handleDetailPhotoChange = async (event) => {
         const selectedFiles = Array.from(event.target.files || [])
             .filter((file) => file.type.startsWith('image/'));
 
@@ -172,16 +182,25 @@ const AddUMKM = () => {
             return;
         }
 
-        setDetailPhotos((current) => {
+        try {
+            const optimizedFiles = await optimizeImageFiles(selectedFiles, { maxBytes: 320 * 1024 });
+            setDetailPhotos((current) => {
             const remainingSlots = Math.max(MAX_DETAIL_PHOTOS - current.length, 0);
-            const nextFiles = selectedFiles.slice(0, remainingSlots).map((file, index) => ({
+            const nextFiles = optimizedFiles.slice(0, remainingSlots).map((file, index) => ({
                 id: `${Date.now()}-${index}-${file.name}`,
                 file,
                 preview: URL.createObjectURL(file),
             }));
 
             return [...current, ...nextFiles];
-        });
+            });
+        } catch {
+            showSubmitNotice({
+                type: 'warning',
+                title: 'Foto detail tidak dapat diproses',
+                message: 'Periksa format gambar lalu coba tambahkan kembali.',
+            });
+        }
         event.target.value = '';
     };
 

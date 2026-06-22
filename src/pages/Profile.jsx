@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
 import PasswordStrength from '../components/PasswordStrength';
+import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
 import { getUploadUrl } from '../config/api';
 import { getPasswordStrength, PASSWORD_RULE_MESSAGE } from '../utils/passwordStrength';
 import './Profile.css';
+import { optimizeImageFile } from '../utils/imageUpload';
 
 const getProfileImageUrl = (profileImage) => {
     if (!profileImage) return '';
@@ -25,6 +27,7 @@ const Profile = () => {
     const [statusType, setStatusType] = useState('info');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [showProfilePhoto, setShowProfilePhoto] = useState(false);
 
     useEffect(() => {
         if (!isLoggedIn) {
@@ -78,13 +81,19 @@ const Profile = () => {
         setFormData((current) => ({ ...current, [field]: event.target.value }));
     };
 
-    const handleImageChange = (event) => {
+    const handleImageChange = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        setProfileImage(file);
-        setPreviewUrl(URL.createObjectURL(file));
+        try {
+            const optimizedFile = await optimizeImageFile(file, { maxBytes: 320 * 1024, maxDimension: 1000 });
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setProfileImage(optimizedFile);
+            setPreviewUrl(URL.createObjectURL(optimizedFile));
+        } catch {
+            setStatusType('warning');
+            setStatus('Foto tidak dapat diproses. Gunakan JPG, PNG, atau WEBP lain.');
+        }
     };
 
     const handleSubmit = async (event) => {
@@ -181,13 +190,25 @@ const Profile = () => {
                     </p>
 
                     <div className="profile-photo-card">
-                        <div className="profile-photo-preview">
+                        <button
+                            className="profile-photo-preview"
+                            type="button"
+                            aria-label={imageUrl ? 'Lihat foto profile' : 'Foto profile belum tersedia'}
+                            title={imageUrl ? 'Lihat foto profile' : 'Pilih foto pada form di samping'}
+                            disabled={!imageUrl}
+                            onClick={() => setShowProfilePhoto(true)}
+                        >
                             {imageUrl ? (
                                 <img src={imageUrl} alt={formData.username || 'Foto profil'} />
                             ) : (
-                                <span>{initials}</span>
+                                <span className="profile-photo-initial">{initials}</span>
                             )}
-                        </div>
+                            {imageUrl && (
+                                <span className="profile-photo-view-hint" aria-hidden="true">
+                                    <Eye />
+                                </span>
+                            )}
+                        </button>
                         <div>
                             <strong>{formData.username || 'Nama pengguna'}</strong>
                             <small>{formData.email || 'email@plusreview.test'}</small>
@@ -280,6 +301,21 @@ const Profile = () => {
                     </div>
                 </form>
             </section>
+            {showProfilePhoto && imageUrl && (
+                <ProfilePhotoViewer
+                    imageUrl={imageUrl}
+                    name={formData.username}
+                    email={formData.email}
+                    editLabel="Ganti foto"
+                    onClose={() => setShowProfilePhoto(false)}
+                    onEdit={() => {
+                        setShowProfilePhoto(false);
+                        window.requestAnimationFrame(() => {
+                            document.querySelector('.profile-upload input[type="file"]')?.click();
+                        });
+                    }}
+                />
+            )}
         </main>
     );
 };

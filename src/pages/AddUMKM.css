@@ -1742,6 +1742,35 @@ body:has(.add-page) {
     padding-bottom: 22px;
   }
 
+  .add-main-column,
+  .add-sidebar {
+    display: contents;
+  }
+
+  .add-form-panel {
+    order: 1;
+  }
+
+  .add-upload-panel {
+    order: 2;
+  }
+
+  .add-detail-photo-panel {
+    order: 3;
+  }
+
+  .add-preview-panel {
+    order: 4;
+  }
+
+  .add-location-panel {
+    order: 5;
+  }
+
+  .add-action-bar--mobile {
+    order: 6;
+  }
+
   .add-hero h1 {
     font-size: clamp(30px, 9vw, 36px);
     line-height: 1.06;

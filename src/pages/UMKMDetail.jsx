@@ -31,6 +31,7 @@ import {
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
 import { getUploadUrl } from '../config/api';
+import { optimizeImageFile, optimizeImageFiles } from '../utils/imageUpload';
 import './UMKMDetail.css';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=1200&auto=format&fit=crop';
@@ -756,7 +757,7 @@ const UMKMDetail = () => {
         setReviewLightboxStartIndex(startIndex);
     };
 
-    const handleReviewPhotoChange = (event) => {
+    const handleReviewPhotoChange = async (event) => {
         const selectedFiles = Array.from(event.target.files || [])
             .filter((file) => file.type.startsWith('image/'));
 
@@ -772,7 +773,7 @@ const UMKMDetail = () => {
             return;
         }
 
-        const acceptedFiles = selectedFiles.slice(0, remainingSlots);
+        const acceptedFiles = await optimizeImageFiles(selectedFiles.slice(0, remainingSlots), { maxBytes: 320 * 1024 });
         const nextPhotos = acceptedFiles.map((file) => ({
             id: `${file.name}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
             file,
@@ -796,7 +797,7 @@ const UMKMDetail = () => {
         });
     };
 
-    const handleEditReviewPhotoChange = (event) => {
+    const handleEditReviewPhotoChange = async (event) => {
         const selectedFiles = Array.from(event.target.files || [])
             .filter((file) => file.type.startsWith('image/'));
 
@@ -812,7 +813,7 @@ const UMKMDetail = () => {
             return;
         }
 
-        const acceptedFiles = selectedFiles.slice(0, remainingSlots);
+        const acceptedFiles = await optimizeImageFiles(selectedFiles.slice(0, remainingSlots), { maxBytes: 320 * 1024 });
         const nextPhotos = acceptedFiles.map((file) => ({
             id: `${file.name}-${file.lastModified}-${Math.random().toString(16).slice(2)}`,
             file,
@@ -999,16 +1000,21 @@ const UMKMDetail = () => {
         setEditForm((current) => ({ ...current, [field]: event.target.value }));
     };
 
-    const handleEditImageChange = (event) => {
+    const handleEditImageChange = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        if (editPreview) URL.revokeObjectURL(editPreview);
-        setEditImage(file);
-        setEditPreview(URL.createObjectURL(file));
+        try {
+            const optimizedFile = await optimizeImageFile(file, { maxBytes: 420 * 1024 });
+            if (editPreview) URL.revokeObjectURL(editPreview);
+            setEditImage(optimizedFile);
+            setEditPreview(URL.createObjectURL(optimizedFile));
+        } catch {
+            setManageNotice({ type: 'error', message: 'Foto utama tidak dapat diproses.' });
+        }
     };
 
-    const handleEditDetailPhotoChange = (event) => {
+    const handleEditDetailPhotoChange = async (event) => {
         const selectedFiles = Array.from(event.target.files || [])
             .filter((file) => file.type.startsWith('image/'));
 
@@ -1024,7 +1030,8 @@ const UMKMDetail = () => {
             return;
         }
 
-        const nextPhotos = selectedFiles.slice(0, remainingSlots).map((file, index) => ({
+        const optimizedFiles = await optimizeImageFiles(selectedFiles.slice(0, remainingSlots), { maxBytes: 320 * 1024 });
+        const nextPhotos = optimizedFiles.map((file, index) => ({
             id: `${Date.now()}-${index}-${file.name}`,
             file,
             preview: URL.createObjectURL(file),
@@ -1196,7 +1203,7 @@ const UMKMDetail = () => {
                     <div className="detail-hero-copy">
                         <span className="detail-overline">Detail rekomendasi UMKM</span>
                         <h1>{umkm.nama_umkm}</h1>
-                        <div className={isDescriptionExpanded ? 'detail-hero-description is-expanded' : 'detail-hero-description'}>
+                        <div className={`${isDescriptionExpanded ? 'detail-hero-description is-expanded' : 'detail-hero-description'}${description.length <= 110 ? ' is-short' : ''}`}>
                             <p>{description}</p>
                             {isDescriptionLong && (
                                 <button

@@ -25,6 +25,7 @@ import adminApiClient from '../api/adminApiClient';
 import BrandLogo from '../components/BrandLogo';
 import PasswordStrength from '../components/PasswordStrength';
 import { getUploadUrl } from '../config/api';
+import { optimizeImageFile } from '../utils/imageUpload';
 import { getPasswordStrength, PASSWORD_RULE_MESSAGE } from '../utils/passwordStrength';
 import './AdminDashboard.css';
 
@@ -740,14 +741,19 @@ const AdminProfileModal = ({ admin, onClose, onSaved }) => {
     const passwordStrength = getPasswordStrength(password);
     const hasChanges = name.trim() !== (admin?.name || '') || Boolean(password.trim()) || Boolean(profileImage);
 
-    const handleImageChange = (event) => {
+    const handleImageChange = async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        if (previewUrl) URL.revokeObjectURL(previewUrl);
-        setProfileImage(file);
-        setPreviewUrl(URL.createObjectURL(file));
-        setStatus(null);
+        try {
+            const optimizedFile = await optimizeImageFile(file, { maxBytes: 320 * 1024, maxDimension: 1000 });
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setProfileImage(optimizedFile);
+            setPreviewUrl(URL.createObjectURL(optimizedFile));
+            setStatus(null);
+        } catch {
+            setStatus({ type: 'error', message: 'Foto tidak dapat diproses. Gunakan JPG, PNG, atau WEBP lain.' });
+        }
     };
 
     const handleSubmit = async (event) => {
