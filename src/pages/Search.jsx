@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 
@@ -92,7 +92,11 @@ const Search = () => {
 
     /* Sync search term saat keyword URL berubah */
     useEffect(() => {
-        setSearchTerm(keywordUrl);
+        const timeoutId = window.setTimeout(() => {
+            setSearchTerm(keywordUrl);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, [keywordUrl]);
 
     const handleSearchKeyDown = (e) => {

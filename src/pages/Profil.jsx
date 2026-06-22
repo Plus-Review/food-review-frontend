@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 
@@ -15,9 +15,6 @@ const Bookmark = (props) => <SvgIcon {...props}><path d="m19 21-7-4-7 4V5a2 2 0 
 const MessageCircle = (props) => <SvgIcon {...props}><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></SvgIcon>;
 const Star = (props) => <SvgIcon {...props}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></SvgIcon>;
 const Mail = (props) => <SvgIcon {...props}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></SvgIcon>;
-const MapPin = (props) => <SvgIcon {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></SvgIcon>;
-const Search = (props) => <SvgIcon {...props}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></SvgIcon>;
-const UserRound = (props) => <SvgIcon {...props}><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></SvgIcon>;
 
 /* ─────────────────────────────────────────────
    FUNGSI HELPER
@@ -69,7 +66,7 @@ const Profile = () => {
                         nama: user.username || user.nama || localStorage.getItem('userName') || 'Mahasiswa',
                         email: user.email || localStorage.getItem('userEmail') || 'email@mahasiswa.com',
                     });
-                } catch (e) {
+                } catch {
                     // Fallback jika /auth/profile gagal, decode token
                     const base64Url = token.split('.')[1];
                     const decodedToken = JSON.parse(window.atob(base64Url.replace(/-/g, '+').replace(/_/g, '/')));

@@ -1,567 +1,1086 @@
-import React, { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+    AlertCircle,
+    Bell,
+    Camera,
+    CheckCircle2,
+    Clock3,
+    Eye,
+    EyeOff,
+    LogOut,
+    MailOpen,
+    Menu,
+    RefreshCw,
+    Search,
+    Save,
+    ShieldCheck,
+    Store,
+    Trash2,
+    UserRound,
+    X,
+    XCircle,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../api/apiClient';
+import adminApiClient from '../api/adminApiClient';
+import BrandLogo from '../components/BrandLogo';
+import PasswordStrength from '../components/PasswordStrength';
+import { getUploadUrl } from '../config/api';
+import { optimizeImageFile } from '../utils/imageUpload';
+import { getPasswordStrength, PASSWORD_RULE_MESSAGE } from '../utils/passwordStrength';
+import './AdminDashboard.css';
 
-const BASE_URL = "http://localhost:5000";
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=600&auto=format&fit=crop';
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=900&auto=format&fit=crop';
 
-/* ─────────────────────────────────────────────
-   IKON SVG MURNI (Dioptimalkan)
-───────────────────────────────────────────── */
-const SvgIcon = memo(({ children, ...props }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>{children}</svg>
-));
-const CheckCircle = (props) => <SvgIcon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></SvgIcon>;
-const XCircle = (props) => <SvgIcon {...props}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></SvgIcon>;
-const Trash2 = (props) => <SvgIcon {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></SvgIcon>;
-const ShieldCheck = (props) => <SvgIcon {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></SvgIcon>;
-const Clock = (props) => <SvgIcon {...props}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></SvgIcon>;
-const Eye = (props) => <SvgIcon {...props}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></SvgIcon>;
-const MapPin = (props) => <SvgIcon {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></SvgIcon>;
-const Info = (props) => <SvgIcon {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></SvgIcon>;
-const Edit2 = (props) => <SvgIcon {...props}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></SvgIcon>;
-const Save = (props) => <SvgIcon {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></SvgIcon>;
+const STATUS_META = {
+    pending_create: {
+        label: 'UMKM baru',
+        tone: 'warning',
+        icon: Clock3,
+        description: 'Data baru menunggu keputusan admin.',
+    },
+    pending_update: {
+        label: 'Edit menunggu',
+        tone: 'info',
+        icon: AlertCircle,
+        description: 'Perubahan user belum diterapkan ke feed.',
+    },
+    approved: {
+        label: 'Approved',
+        tone: 'success',
+        icon: CheckCircle2,
+        description: 'UMKM sudah tampil di feed publik.',
+    },
+    rejected: {
+        label: 'Ditolak',
+        tone: 'danger',
+        icon: XCircle,
+        description: 'UMKM tidak tampil sampai diperbaiki.',
+    },
+};
 
-/* Ikon Analitik */
-const Users = (props) => <SvgIcon {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></SvgIcon>;
-const Store = (props) => <SvgIcon {...props}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></SvgIcon>;
-const MessageSquare = (props) => <SvgIcon {...props}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></SvgIcon>;
+const FILTERS = [
+    { key: 'pending', label: 'Antrean' },
+    { key: 'pending_create', label: 'UMKM Baru' },
+    { key: 'pending_update', label: 'Edit' },
+    { key: 'approved', label: 'Approved' },
+    { key: 'rejected', label: 'Ditolak' },
+    { key: 'all', label: 'Semua' },
+];
 
-/* ─────────────────────────────────────────────
-   KOMPONEN KARTU UMKM
-───────────────────────────────────────────── */
-const UmkmCard = memo(({ item, isActive, onView, onDelete }) => (
-    <div className="admin-card">
-        <div className="card-image-box">
-            <img src={item.image ? `${BASE_URL}/uploads/${item.image}` : FALLBACK_IMAGE} alt="UMKM" loading="lazy" />
-            <div className="card-overlay"></div>
-            <div className={`badge-status ${isActive ? 'active' : 'pending'}`}>
-                {isActive ? 'Live' : 'Pending'}
-            </div>
-        </div>
-        <div className="card-content">
-            <div className="card-meta">
-                <span className="meta-category">{item.kategori || 'Umum'}</span>
-                <span className="meta-date">{new Date(item.createdAt).toLocaleDateString('id-ID')}</span>
-            </div>
-            <h3 className="card-title">{item.nama_umkm}</h3>
-            <p className="card-text">{item.deskripsi || 'Tidak ada deskripsi'}</p>
-        </div>
-        <div className="card-actions">
-            <button className="action-btn primary" onClick={() => onView(item)}>
-                <Eye /> {isActive ? 'Detail & Edit' : 'Tinjau'}
-            </button>
-            {isActive && (
-                <button className="action-btn danger-icon" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} title="Hapus">
-                    <Trash2 />
-                </button>
-            )}
-        </div>
-    </div>
-));
+const ADMIN_NOTIFICATION_META = {
+    umkm_pending_create: { label: 'UMKM baru', tone: 'warning', icon: Clock3 },
+    umkm_pending_update: { label: 'Edit UMKM', tone: 'info', icon: AlertCircle },
+};
 
-/* ─────────────────────────────────────────────
-   KOMPONEN UTAMA DASHBOARD
-───────────────────────────────────────────── */
+const getCachedAdmin = () => {
+    try {
+        return JSON.parse(localStorage.getItem('adminUser') || 'null');
+    } catch {
+        return null;
+    }
+};
+
+const getStatus = (item) => item?.verification_status || 'approved';
+
+const getStatusMeta = (status) => STATUS_META[getStatus({ verification_status: status })] || STATUS_META.approved;
+
+const getImageUrl = (image) => {
+    if (!image) return FALLBACK_IMAGE;
+    return getUploadUrl(image);
+};
+
+const getProfileImageUrl = (image) => {
+    if (!image) return '';
+    return getUploadUrl(image);
+};
+
+const getAdminInitial = (admin) => (
+    String(admin?.name || admin?.username || 'A').trim().charAt(0).toUpperCase() || 'A'
+);
+
+const formatDate = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Belum ada';
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
+};
+
+const getPendingFields = (item) => item?.pending_update?.fields || null;
+
+const getVisibleValue = (item, key) => String(item?.[key] || '-').trim() || '-';
+
+const getPendingValue = (item, key) => {
+    const fields = getPendingFields(item);
+    return String(fields?.[key] || '-').trim() || '-';
+};
+
+const matchesSearch = (item, searchTerm) => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return true;
+
+    return [
+        item.nama_umkm,
+        item.jenis_makanan,
+        item.alamat_teks,
+        item.owner?.username,
+        item.owner?.email,
+        item.verification_status,
+    ].filter(Boolean).join(' ').toLowerCase().includes(query);
+};
+
+const getPendingTotal = (stats = {}) => (stats.pendingCreate || 0) + (stats.pendingUpdate || 0);
+
+const scrollToVerificationPanel = () => {
+    if (window.innerWidth > 760) return;
+
+    window.requestAnimationFrame(() => {
+        document.getElementById('admin-verification-panel')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    });
+};
+
 const AdminDashboard = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('pending');
-    
-    const [pendingUmkms, setPendingUmkms] = useState([]);
-    const [approvedUmkms, setApprovedUmkms] = useState([]);
-    const [stats, setStats] = useState({ totalUsers: 0, totalReviews: 0 });
-    const [isLoading, setIsLoading] = useState(true);
+    const [admin, setAdmin] = useState(() => getCachedAdmin());
+    const [items, setItems] = useState([]);
+    const [stats, setStats] = useState({
+        total: 0,
+        pendingCreate: 0,
+        pendingUpdate: 0,
+        approved: 0,
+        rejected: 0,
+    });
+    const [activeFilter, setActiveFilter] = useState('pending');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedId, setSelectedId] = useState(null);
+    const [note, setNote] = useState('');
     const [notice, setNotice] = useState(null);
-    
-    const [selectedUmkm, setSelectedUmkm] = useState(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [editForm, setEditForm] = useState({});
+    const [adminNotifications, setAdminNotifications] = useState({
+        total: 0,
+        unread: 0,
+        notifications: [],
+    });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [deletingAdminNotificationId, setDeletingAdminNotificationId] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-        if (!token || user.role !== 'admin') {
-            navigate('/');
-            return;
-        }
-        fetchDashboardData();
-    }, [navigate]);
-
-    const fetchDashboardData = async () => {
+    const loadDashboard = async () => {
         setIsLoading(true);
+        setNotice(null);
+
         try {
-            const [pendingRes, approvedRes, statsRes] = await Promise.all([
-                apiClient.get('/umkm/admin/pending'),
-                apiClient.get('/umkm'),
-                apiClient.get('/umkm/admin/stats').catch(() => ({ data: null })) // Mencegah error jika API stats belum siap
+            const [{ data: meData }, { data }, { data: notificationData }] = await Promise.all([
+                adminApiClient.get('/me'),
+                adminApiClient.get('/umkm'),
+                adminApiClient.get('/notifications'),
             ]);
-            
-            setPendingUmkms(pendingRes.data);
-            setApprovedUmkms(approvedRes.data);
-            
-            if (statsRes.data) {
-                setStats({ totalUsers: statsRes.data.totalUsers, totalReviews: statsRes.data.totalReviews });
-            }
+
+            setAdmin(meData.admin);
+            localStorage.setItem('adminUser', JSON.stringify(meData.admin));
+            setItems(Array.isArray(data.umkms) ? data.umkms : []);
+            setStats(data.stats || {});
+            setAdminNotifications({
+                total: Number(notificationData.total || 0),
+                unread: Number(notificationData.unread || 0),
+                notifications: Array.isArray(notificationData.notifications) ? notificationData.notifications : [],
+            });
+            setSelectedId((current) => {
+                if (current && data.umkms?.some((item) => Number(item.id) === Number(current))) return current;
+                return data.umkms?.[0]?.id || null;
+            });
         } catch (error) {
-            showNotice('error', 'Gagal memuat data dashboard.');
+            if (error.response?.status === 401 || error.response?.status === 403) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                navigate('/admin');
+                return;
+            }
+
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Gagal memuat dashboard admin.',
+            });
         } finally {
             setIsLoading(false);
         }
     };
 
-    const showNotice = (type, message) => {
-        setNotice({ type, message });
-        setTimeout(() => setNotice(null), 3000);
-    };
-
-    const handleVerify = async (id, actionStatus) => {
-        if (!window.confirm(actionStatus === 'approved' ? 'Setujui dan tayangkan UMKM ini?' : 'Tolak dan buang UMKM ini?')) return;
-        try {
-            await apiClient.put(`/umkm/${id}/verify`, { status: actionStatus });
-            showNotice('success', `UMKM berhasil di-${actionStatus}!`);
-            setSelectedUmkm(null);
-            fetchDashboardData();
-        } catch (error) {
-            showNotice('error', `Gagal mengubah status UMKM.`);
+    useEffect(() => {
+        if (!localStorage.getItem('adminToken')) {
+            navigate('/admin');
+            return;
         }
-    };
 
-    const handleDelete = useCallback(async (id) => {
-        if (!window.confirm('Hapus UMKM ini secara permanen?')) return;
-        try {
-            await apiClient.delete(`/umkm/${id}`);
-            showNotice('success', 'UMKM berhasil dihapus.');
-            fetchDashboardData();
-            setSelectedUmkm(null);
-        } catch (error) {
-            showNotice('error', 'Gagal menghapus UMKM.');
-        }
+        const timeout = window.setTimeout(() => {
+            void loadDashboard();
+        }, 0);
+        return () => window.clearTimeout(timeout);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleOpenModal = useCallback((item) => {
-        setSelectedUmkm(item);
-        setIsEditing(false);
-        setEditForm({
-            nama_umkm: item.nama_umkm || '',
-            kategori: item.kategori || '',
-            deskripsi: item.deskripsi || '',
-            alamat_teks: item.alamat_teks || '',
-            harga_range: item.harga_range || ''
-        });
-    }, []);
+    useEffect(() => {
+        if (!isSidebarOpen) return undefined;
 
-    const handleSaveEdit = async () => {
-        try {
-            const formData = new FormData();
-            formData.append('nama_umkm', editForm.nama_umkm);
-            formData.append('kategori', editForm.kategori);
-            formData.append('deskripsi', editForm.deskripsi);
-            formData.append('alamat_teks', editForm.alamat_teks);
-            formData.append('harga_range', editForm.harga_range);
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                setIsSidebarOpen(false);
+            }
+        };
 
-            await apiClient.put(`/umkm/${selectedUmkm.id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            
-            showNotice('success', 'Data UMKM berhasil diperbarui!');
-            setIsEditing(false);
-            fetchDashboardData();
-            setSelectedUmkm(prev => ({ ...prev, ...editForm }));
-        } catch (error) {
-            showNotice('error', 'Gagal menyimpan perubahan.');
-        }
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isSidebarOpen]);
+
+    const visibleItems = useMemo(() => (
+        items
+            .filter((item) => {
+                const status = getStatus(item);
+                if (activeFilter === 'pending') return status === 'pending_create' || status === 'pending_update';
+                if (activeFilter === 'all') return true;
+                return status === activeFilter;
+            })
+            .filter((item) => matchesSearch(item, searchTerm))
+    ), [activeFilter, items, searchTerm]);
+
+    const selectedItem = useMemo(() => (
+        visibleItems.find((item) => Number(item.id) === Number(selectedId)) || visibleItems[0] || null
+    ), [selectedId, visibleItems]);
+
+    const pendingTotal = getPendingTotal(stats);
+
+    const handleFilterChange = (filterKey) => {
+        setActiveFilter(filterKey);
+        setSelectedId(null);
+        setNote('');
+        setIsSidebarOpen(false);
+    };
+
+    const handleSearchChange = (value) => {
+        setSearchTerm(value);
+        setSelectedId(null);
+        setNote('');
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/login');
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        setIsSidebarOpen(false);
+        navigate('/admin');
+    };
+
+    const handleDecision = async (decision) => {
+        if (!selectedItem || isProcessing) return;
+
+        if (decision === 'reject' && !note.trim()) {
+            setNotice({
+                type: 'error',
+                message: 'Tulis alasan penolakan dulu agar user tahu bagian yang harus diperbaiki.',
+            });
+            return;
+        }
+
+        setIsProcessing(true);
+        setNotice(null);
+
+        try {
+            const endpoint = decision === 'approve' ? 'approve' : 'reject';
+            const { data } = await adminApiClient.post(`/umkm/${selectedItem.id}/${endpoint}`, { note });
+            setNotice({ type: 'success', message: data.message });
+            setNote('');
+            await loadDashboard();
+            window.dispatchEvent(new Event('umkm-updated'));
+        } catch (error) {
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Gagal memproses keputusan admin.',
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleAdminNotificationRead = async (notificationId) => {
+        const target = adminNotifications.notifications.find((item) => Number(item.id) === Number(notificationId));
+        if (!target || target.isRead) return;
+
+        try {
+            await adminApiClient.patch(`/notifications/${notificationId}/read`);
+            setAdminNotifications((current) => ({
+                ...current,
+                unread: Math.max(0, Number(current.unread || 0) - 1),
+                notifications: current.notifications.map((item) => (
+                    Number(item.id) === Number(notificationId)
+                        ? { ...item, isRead: true, readAt: new Date().toISOString() }
+                        : item
+                )),
+            }));
+        } catch (error) {
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Notifikasi admin belum bisa ditandai dibaca.',
+            });
+        }
+    };
+
+    const handleAdminNotificationOpen = async (notification) => {
+        await handleAdminNotificationRead(notification.id);
+        if (!notification.relatedUmkmId) return;
+
+        setActiveFilter('all');
+        setSearchTerm('');
+        setSelectedId(notification.relatedUmkmId);
+        scrollToVerificationPanel();
+    };
+
+    const removeAdminNotificationFromState = (notification) => {
+        setAdminNotifications((current) => ({
+            ...current,
+            total: Math.max(0, Number(current.total || 0) - 1),
+            unread: Math.max(0, Number(current.unread || 0) - (notification.isRead ? 0 : 1)),
+            notifications: current.notifications.filter((item) => Number(item.id) !== Number(notification.id)),
+        }));
+    };
+
+    const handleAdminNotificationDelete = async (notification) => {
+        if (!notification || deletingAdminNotificationId) return;
+
+        setDeletingAdminNotificationId(notification.id);
+        setNotice(null);
+
+        try {
+            try {
+                await adminApiClient.delete(`/notifications/${notification.id}`);
+            } catch (deleteError) {
+                const status = Number(deleteError.response?.status || 0);
+                const responseMessage = deleteError.response?.data?.message;
+
+                if (status === 404 && responseMessage === 'Notifikasi tidak ditemukan.') {
+                    removeAdminNotificationFromState(notification);
+                    setNotice({ type: 'success', message: 'Notifikasi sudah tidak tersedia dan dibersihkan dari panel.' });
+                    return;
+                }
+
+                if (!deleteError.response || status === 404 || status === 405 || typeof responseMessage !== 'string') {
+                    await adminApiClient.post(`/notifications/${notification.id}/delete`);
+                } else {
+                    throw deleteError;
+                }
+            }
+
+            removeAdminNotificationFromState(notification);
+            setNotice({ type: 'success', message: 'Notifikasi admin berhasil dihapus.' });
+        } catch (error) {
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Notifikasi admin belum bisa dihapus. Restart backend lalu coba lagi.',
+            });
+        } finally {
+            setDeletingAdminNotificationId(null);
+        }
+    };
+
+    const handleAllAdminNotificationsRead = async () => {
+        try {
+            await adminApiClient.patch('/notifications/read-all');
+            setAdminNotifications((current) => ({
+                ...current,
+                unread: 0,
+                notifications: current.notifications.map((item) => ({
+                    ...item,
+                    isRead: true,
+                    readAt: item.readAt || new Date().toISOString(),
+                })),
+            }));
+        } catch (error) {
+            setNotice({
+                type: 'error',
+                message: error.response?.data?.message || 'Gagal menandai notifikasi admin.',
+            });
+        }
     };
 
     return (
-        <div className="dash-wrapper">
-            <style dangerouslySetInnerHTML={{ __html: adminCSS }} />
+        <main className={isSidebarOpen ? 'admin-page is-sidebar-open' : 'admin-page'}>
+            <header className="admin-mobile-topbar">
+                <button
+                    className="admin-mobile-menu-button"
+                    type="button"
+                    aria-label="Buka menu admin"
+                    aria-expanded={isSidebarOpen}
+                    onClick={() => setIsSidebarOpen(true)}
+                >
+                    <Menu aria-hidden="true" />
+                    <span>Menu</span>
+                </button>
 
-            {/* Navbar */}
-            <nav className="dash-nav glass-nav">
-                <div className="dash-logo" onClick={() => navigate('/')}>
-                    Plus<span>Review</span> <div className="tag-admin">KENDALI ADMIN</div>
-                </div>
-                <button className="btn-logout" onClick={handleLogout}>Keluar Sesi</button>
-            </nav>
+                <span className="admin-mobile-spacer" aria-hidden="true" />
 
-            {notice && (
-                <div className={`notice-toast ${notice.type}`}>
-                    <span>{notice.message}</span>
-                </div>
-            )}
-
-            {/* Header Hero */}
-            <header className="dash-hero">
-                <div className="hero-content">
-                    <div className="hero-text">
-                        <h1>Pusat Moderasi Data</h1>
-                        <p>Kelola direktori UMKM, tinjau pendaftaran baru, dan jaga kualitas platform.</p>
-                    </div>
-                </div>
+                <button className="admin-mobile-refresh" type="button" onClick={loadDashboard} disabled={isLoading} aria-label="Refresh dashboard">
+                    <RefreshCw aria-hidden="true" />
+                </button>
             </header>
 
-            <main className="dash-main">
-                {/* 🌟 STATISTIK ANALITIK (NEW) */}
-                <div className="stats-grid">
-                    <div className="stat-card">
-                        <div className="icon-wrap blue"><Users size={22}/></div>
-                        <div className="stat-info">
-                            <span className="stat-label">Pengguna Aktif</span>
-                            <h2 className="stat-value">{stats.totalUsers || 0}</h2>
-                        </div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="icon-wrap green"><Store size={22}/></div>
-                        <div className="stat-info">
-                            <span className="stat-label">UMKM Terdaftar</span>
-                            <h2 className="stat-value">{approvedUmkms.length}</h2>
-                        </div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="icon-wrap yellow"><Clock size={22}/></div>
-                        <div className="stat-info">
-                            <span className="stat-label">Antrean Validasi</span>
-                            <h2 className="stat-value">{pendingUmkms.length}</h2>
-                        </div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="icon-wrap purple"><MessageSquare size={22}/></div>
-                        <div className="stat-info">
-                            <span className="stat-label">Total Ulasan</span>
-                            <h2 className="stat-value">{stats.totalReviews || 0}</h2>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Segmented Control Tabs */}
-                <div className="dash-tabs-container">
-                    <div className="dash-tabs">
-                        <button className={`tab-item ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => setActiveTab('pending')}>
-                            <Clock /> Antrean Validasi <span className="tab-badge">{pendingUmkms.length}</span>
-                        </button>
-                        <button className={`tab-item ${activeTab === 'approved' ? 'active' : ''}`} onClick={() => setActiveTab('approved')}>
-                            <CheckCircle /> UMKM Aktif <span className="tab-badge alt">{approvedUmkms.length}</span>
-                        </button>
-                    </div>
-                </div>
-
-                {isLoading ? (
-                    <div className="state-box">
-                        <div className="spinner"></div>
-                        <p>Mensinkronkan data dari server...</p>
-                    </div>
-                ) : activeTab === 'pending' ? (
-                    pendingUmkms.length > 0 ? (
-                        <div className="dash-grid">
-                            {pendingUmkms.map(item => (
-                                <UmkmCard key={item.id} item={item} isActive={false} onView={handleOpenModal} onDelete={handleDelete} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="state-box empty">
-                            <ShieldCheck size={64} color="#d1d5db" />
-                            <h3>Selesai! Tidak ada antrean.</h3>
-                            <p>Semua UMKM baru telah divalidasi. Kerja bagus, Admin!</p>
-                        </div>
-                    )
-                ) : (
-                    approvedUmkms.length > 0 ? (
-                        <div className="dash-grid">
-                            {approvedUmkms.map(item => (
-                                <UmkmCard key={item.id} item={item} isActive={true} onView={handleOpenModal} onDelete={handleDelete} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="state-box empty">
-                            <p>Belum ada UMKM yang aktif disetujui.</p>
-                        </div>
-                    )
-                )}
-            </main>
-
-            {/* 🌟 MODAL DETAIL & EDIT */}
-            {selectedUmkm && (
-                <div className="modal-overlay" onClick={() => setSelectedUmkm(null)}>
-                    <div className="modal-container" onClick={e => e.stopPropagation()}>
-                        
-                        <div className="modal-split">
-                            <div className="modal-visual">
-                                <button className="modal-close-abs" onClick={() => setSelectedUmkm(null)}><XCircle /></button>
-                                <div className="visual-image">
-                                    <img src={selectedUmkm.image ? `${BASE_URL}/uploads/${selectedUmkm.image}` : FALLBACK_IMAGE} alt="UMKM" />
-                                    <div className="visual-overlay"></div>
-                                </div>
-                                <div className="visual-content">
-                                    <span className="v-tag">{selectedUmkm.kategori || 'Kuliner'}</span>
-                                    <h2 className="v-title">{selectedUmkm.nama_umkm}</h2>
-                                    <div className="v-stats">
-                                        <div className="v-stat-box">
-                                            <span className="label">Status</span>
-                                            <span className={`value ${selectedUmkm.status === 'approved' ? 'text-green' : 'text-gold'}`}>
-                                                {selectedUmkm.status === 'approved' ? 'Aktif Tayang' : 'Antrean'}
-                                            </span>
-                                        </div>
-                                        <div className="v-stat-box">
-                                            <span className="label">Ulasan</span>
-                                            <span className="value">{selectedUmkm.reviews?.length || 0} Review</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="modal-data">
-                                <div className="data-header">
-                                    <h3>{isEditing ? 'Perbarui Data UMKM' : 'Informasi Detail UMKM'}</h3>
-                                    {!isEditing && (
-                                        <button className="btn-outline-small" onClick={() => setIsEditing(true)}>
-                                            <Edit2 /> Edit Data
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="data-body">
-                                    {isEditing ? (
-                                        <div className="form-grid">
-                                            <div className="form-group full">
-                                                <label>Nama Warung / UMKM</label>
-                                                <input type="text" value={editForm.nama_umkm} onChange={e => setEditForm({...editForm, nama_umkm: e.target.value})} />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Kategori Utama</label>
-                                                <input type="text" value={editForm.kategori} onChange={e => setEditForm({...editForm, kategori: e.target.value})} />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Rentang Harga</label>
-                                                <input type="text" value={editForm.harga_range} placeholder="Cth: Rp 10.000 - Rp 25.000" onChange={e => setEditForm({...editForm, harga_range: e.target.value})} />
-                                            </div>
-                                            <div className="form-group full">
-                                                <label>Alamat Lengkap</label>
-                                                <textarea rows="2" value={editForm.alamat_teks} onChange={e => setEditForm({...editForm, alamat_teks: e.target.value})} />
-                                            </div>
-                                            <div className="form-group full">
-                                                <label>Deskripsi & Fasilitas</label>
-                                                <textarea rows="4" value={editForm.deskripsi} onChange={e => setEditForm({...editForm, deskripsi: e.target.value})} />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="info-grid">
-                                            <div className="info-row">
-                                                <div className="icon-wrapper"><MapPin /></div>
-                                                <div>
-                                                    <span className="info-label">Alamat Lengkap</span>
-                                                    <p className="info-value">{selectedUmkm.alamat_teks || 'Tidak ada data alamat.'}</p>
-                                                </div>
-                                            </div>
-                                            <div className="info-row">
-                                                <div className="icon-wrapper"><Info /></div>
-                                                <div>
-                                                    <span className="info-label">Deskripsi UMKM</span>
-                                                    <p className="info-value box">{selectedUmkm.deskripsi || 'Belum ada deskripsi yang ditambahkan.'}</p>
-                                                </div>
-                                            </div>
-                                            <div className="info-row">
-                                                <div className="icon-wrapper" style={{background: '#e6f4ea', color: '#1e8e3e'}}><Clock /></div>
-                                                <div>
-                                                    <span className="info-label">Rentang Harga</span>
-                                                    <p className="info-value price-badge">{selectedUmkm.harga_range || 'Harga belum diatur'}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="data-footer">
-                                    {isEditing ? (
-                                        <>
-                                            <button className="btn-text" onClick={() => setIsEditing(false)}>Batal</button>
-                                            <button className="btn-solid dark" onClick={handleSaveEdit}><Save /> Simpan Data</button>
-                                        </>
-                                    ) : selectedUmkm.status !== 'approved' ? (
-                                        <>
-                                            <button className="btn-solid danger" onClick={() => handleVerify(selectedUmkm.id, 'rejected')}><XCircle /> Tolak Pendaftaran</button>
-                                            <button className="btn-solid success" onClick={() => handleVerify(selectedUmkm.id, 'approved')}><CheckCircle /> Setujui & Tayangkan</button>
-                                        </>
-                                    ) : (
-                                        <button className="btn-text" onClick={() => setSelectedUmkm(null)}>Tutup Tinjauan</button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
+            {isSidebarOpen && (
+                <button
+                    className="admin-sidebar-scrim"
+                    type="button"
+                    aria-label="Tutup menu admin"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
             )}
+
+            <aside className="admin-sidebar">
+                <div className="admin-sidebar-head">
+                    <button className="admin-brand" type="button" onClick={() => navigate('/')}>
+                        <BrandLogo showSubtitle={false} />
+                    </button>
+                    <button className="admin-sidebar-close" type="button" aria-label="Tutup menu admin" onClick={() => setIsSidebarOpen(false)}>
+                        <X aria-hidden="true" />
+                    </button>
+                </div>
+
+                <button
+                    className="admin-profile"
+                    type="button"
+                    onClick={() => {
+                        setIsProfileOpen(true);
+                        setIsSidebarOpen(false);
+                    }}
+                >
+                    <span className={admin?.profileImage ? 'has-photo' : undefined}>
+                        {admin?.profileImage ? (
+                            <img src={getProfileImageUrl(admin.profileImage)} alt="" />
+                        ) : (
+                            <em>{getAdminInitial(admin)}</em>
+                        )}
+                    </span>
+                    <div>
+                        <strong>{admin?.name || 'Admin Plus Review'}</strong>
+                        <small>{admin?.username || 'admin'} - Edit profile</small>
+                    </div>
+                </button>
+
+                <nav className="admin-filter-list" aria-label="Filter dashboard admin">
+                    {FILTERS.map((filter) => (
+                        <button
+                            key={filter.key}
+                            className={activeFilter === filter.key ? 'is-active' : undefined}
+                            type="button"
+                            onClick={() => handleFilterChange(filter.key)}
+                        >
+                            <span>{filter.label}</span>
+                            <small>{getFilterCount(filter.key, stats)}</small>
+                        </button>
+                    ))}
+                </nav>
+
+                <button className="admin-logout" type="button" onClick={handleLogout}>
+                    <LogOut aria-hidden="true" />
+                    <span>Logout admin</span>
+                </button>
+            </aside>
+
+            <section className="admin-main">
+                <header className="admin-header">
+                    <div>
+                        <span>Dashboard admin</span>
+                        <h1>Verifikasi UMKM</h1>
+                        <p>Review UMKM baru dan perubahan data sebelum tampil di Plus Review.</p>
+                    </div>
+
+                    <div className="admin-header-actions">
+                        <div className="admin-review-summary">
+                            <Clock3 aria-hidden="true" />
+                            <strong>{pendingTotal}</strong>
+                            <span>menunggu keputusan</span>
+                        </div>
+
+                        <button className="admin-refresh" type="button" onClick={loadDashboard} disabled={isLoading}>
+                            <RefreshCw aria-hidden="true" />
+                            <span>{isLoading ? 'Memuat...' : 'Refresh'}</span>
+                        </button>
+                    </div>
+                </header>
+
+                <div className="admin-stat-grid">
+                    <AdminStat icon={Clock3} value={pendingTotal} label="Antrean" tone="warning" />
+                    <AdminStat icon={Store} value={stats.pendingCreate || 0} label="UMKM baru" tone="neutral" />
+                    <AdminStat icon={AlertCircle} value={stats.pendingUpdate || 0} label="Edit menunggu" tone="info" />
+                    <AdminStat icon={CheckCircle2} value={stats.approved || 0} label="Approved" tone="success" />
+                    <AdminStat icon={XCircle} value={stats.rejected || 0} label="Ditolak" tone="danger" />
+                </div>
+
+                <AdminNotificationPanel
+                    data={adminNotifications}
+                    onOpen={handleAdminNotificationOpen}
+                    onRead={handleAdminNotificationRead}
+                    onReadAll={handleAllAdminNotificationsRead}
+                    onDelete={handleAdminNotificationDelete}
+                    deletingId={deletingAdminNotificationId}
+                />
+
+                {notice && (
+                    <div className={`admin-notice is-${notice.type}`} role="status">
+                        {notice.message}
+                    </div>
+                )}
+
+                <div className="admin-workspace">
+                    <section className="admin-list-panel">
+                        <div className="admin-list-head">
+                            <div>
+                                <span>Antrean data</span>
+                                <strong>{visibleItems.length} UMKM</strong>
+                                <small>Gunakan filter dan pencarian untuk memutuskan data lebih cepat.</small>
+                            </div>
+
+                            <form className="admin-search" onSubmit={(event) => event.preventDefault()}>
+                                <Search aria-hidden="true" />
+                                <input
+                                    value={searchTerm}
+                                    onChange={(event) => handleSearchChange(event.target.value)}
+                                    placeholder="Cari nama, owner, status"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        className="admin-search-clear"
+                                        type="button"
+                                        aria-label="Hapus pencarian"
+                                        onClick={() => handleSearchChange('')}
+                                    >
+                                        <XCircle aria-hidden="true" />
+                                    </button>
+                                )}
+                            </form>
+                        </div>
+
+                        <div className="admin-card-list">
+                            {isLoading ? (
+                                <AdminState title="Memuat antrean" text="Data moderasi sedang disiapkan." />
+                            ) : visibleItems.length > 0 ? (
+                                visibleItems.map((item) => (
+                                    <AdminQueueCard
+                                        key={item.id}
+                                        item={item}
+                                        isSelected={Number(selectedItem?.id) === Number(item.id)}
+                                        onSelect={() => {
+                                            setSelectedId(item.id);
+                                            setNote('');
+                                            scrollToVerificationPanel();
+                                        }}
+                                    />
+                                ))
+                            ) : (
+                                <AdminState title="Tidak ada data" text="Filter ini sedang kosong." />
+                            )}
+                        </div>
+                    </section>
+
+                    <AdminDetailPanel
+                        item={selectedItem}
+                        note={note}
+                        onNoteChange={setNote}
+                        onApprove={() => handleDecision('approve')}
+                        onReject={() => handleDecision('reject')}
+                        isProcessing={isProcessing}
+                    />
+                </div>
+            </section>
+
+            {isProfileOpen && (
+                <AdminProfileModal
+                    admin={admin}
+                    onClose={() => setIsProfileOpen(false)}
+                    onSaved={(nextAdmin) => {
+                        setAdmin(nextAdmin);
+                        localStorage.setItem('adminUser', JSON.stringify(nextAdmin));
+                    }}
+                />
+            )}
+        </main>
+    );
+};
+
+const getFilterCount = (key, stats) => {
+    if (key === 'pending') return (stats.pendingCreate || 0) + (stats.pendingUpdate || 0);
+    if (key === 'pending_create') return stats.pendingCreate || 0;
+    if (key === 'pending_update') return stats.pendingUpdate || 0;
+    if (key === 'approved') return stats.approved || 0;
+    if (key === 'rejected') return stats.rejected || 0;
+    return stats.total || 0;
+};
+
+const AdminStat = ({ icon: Icon, value, label, tone = 'neutral' }) => (
+    <article className={`admin-stat is-${tone}`}>
+        <Icon aria-hidden="true" />
+        <strong>{value}</strong>
+        <span>{label}</span>
+    </article>
+);
+
+const AdminNotificationPanel = ({ data, onOpen, onRead, onReadAll, onDelete, deletingId }) => {
+    const notifications = data.notifications || [];
+    const visibleNotifications = notifications.slice(0, 3);
+
+    return (
+        <section className="admin-notification-panel" aria-label="Notifikasi admin">
+            <div className="admin-notification-head">
+                <span>
+                    <Bell aria-hidden="true" />
+                    Notifikasi verifikasi
+                </span>
+                <strong>
+                    {data.unread > 0
+                        ? `${data.unread} belum dibaca`
+                        : 'Semua sudah dibaca'}
+                </strong>
+            </div>
+
+            <div className="admin-notification-list">
+                {visibleNotifications.length > 0 ? visibleNotifications.map((notification) => (
+                    <AdminNotificationCard
+                        key={notification.id}
+                        notification={notification}
+                        onOpen={() => onOpen(notification)}
+                        onRead={() => onRead(notification.id)}
+                        onDelete={() => onDelete(notification)}
+                        isDeleting={Number(deletingId) === Number(notification.id)}
+                    />
+                )) : (
+                    <div className="admin-notification-empty">
+                        <CheckCircle2 aria-hidden="true" />
+                        <span>Tidak ada notifikasi baru.</span>
+                    </div>
+                )}
+            </div>
+
+            <button className="admin-notification-read-all" type="button" disabled={data.unread === 0} onClick={onReadAll}>
+                <MailOpen aria-hidden="true" />
+                Tandai semua dibaca
+            </button>
+        </section>
+    );
+};
+
+const AdminNotificationCard = ({ notification, onOpen, onRead, onDelete, isDeleting }) => {
+    const meta = ADMIN_NOTIFICATION_META[notification.type] || {
+        label: 'Notifikasi',
+        tone: 'neutral',
+        icon: Bell,
+    };
+    const relatedStatus = notification.umkm?.verification_status || notification.metadata?.status || '';
+    const isCreateNotification = notification.type === 'umkm_pending_create';
+    const isUpdateNotification = notification.type === 'umkm_pending_update';
+    const isApproved = relatedStatus === 'approved' && (isCreateNotification || isUpdateNotification);
+    const isRejected = relatedStatus === 'rejected' && isCreateNotification;
+    const label = isApproved
+        ? (isCreateNotification ? 'UMKM baru telah diverifikasi' : 'Edit UMKM telah diverifikasi')
+        : isRejected
+            ? 'UMKM baru ditolak'
+            : meta.label;
+    const title = isApproved
+        ? label
+        : isRejected
+            ? 'UMKM baru ditolak admin'
+            : notification.title;
+    const tone = isApproved ? 'success' : isRejected ? 'danger' : meta.tone;
+    const Icon = isApproved ? CheckCircle2 : isRejected ? XCircle : meta.icon;
+
+    return (
+        <article className={notification.isRead ? 'admin-notification-card' : 'admin-notification-card is-unread'}>
+            <span className={`admin-notification-icon is-${tone}`}>
+                <Icon aria-hidden="true" />
+            </span>
+            <div>
+                <small>{label} - {formatDate(notification.createdAt)}</small>
+                <strong>{title}</strong>
+                <p>{notification.umkm?.nama_umkm || notification.metadata?.umkmName || notification.message}</p>
+            </div>
+            <div className="admin-notification-actions">
+                {!notification.isRead && (
+                    <button type="button" onClick={onRead}>
+                        Baca
+                    </button>
+                )}
+                <button className="is-open" type="button" onClick={onOpen}>
+                    Pilih
+                </button>
+                <button className="is-danger" type="button" onClick={onDelete} disabled={isDeleting}>
+                    <Trash2 aria-hidden="true" />
+                    <span>{isDeleting ? 'Menghapus' : 'Hapus'}</span>
+                </button>
+            </div>
+        </article>
+    );
+};
+
+const AdminProfileModal = ({ admin, onClose, onSaved }) => {
+    const [name, setName] = useState(admin?.name || '');
+    const [password, setPassword] = useState('');
+    const [profileImage, setProfileImage] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [status, setStatus] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+    }, [previewUrl]);
+
+    const currentImageUrl = previewUrl || getProfileImageUrl(admin?.profileImage);
+    const passwordStrength = getPasswordStrength(password);
+    const hasChanges = name.trim() !== (admin?.name || '') || Boolean(password.trim()) || Boolean(profileImage);
+
+    const handleImageChange = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const optimizedFile = await optimizeImageFile(file, { maxBytes: 320 * 1024, maxDimension: 1000 });
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setProfileImage(optimizedFile);
+            setPreviewUrl(URL.createObjectURL(optimizedFile));
+            setStatus(null);
+        } catch {
+            setStatus({ type: 'error', message: 'Foto tidak dapat diproses. Gunakan JPG, PNG, atau WEBP lain.' });
+        }
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (isSaving) return;
+
+        if (!hasChanges) {
+            setStatus({ type: 'warning', message: 'Isi perubahan terlebih dahulu sebelum menyimpan.' });
+            return;
+        }
+
+        if (!name.trim()) {
+            setStatus({ type: 'error', message: 'Nama admin wajib diisi.' });
+            return;
+        }
+
+        if (password.trim() && !passwordStrength.isValid) {
+            setStatus({ type: 'error', message: PASSWORD_RULE_MESSAGE });
+            return;
+        }
+
+        setIsSaving(true);
+        setStatus(null);
+
+        try {
+            let payload = {
+                name: name.trim(),
+            };
+
+            if (password.trim()) payload.password = password;
+
+            if (profileImage) {
+                payload = new FormData();
+                payload.append('name', name.trim());
+                if (password.trim()) payload.append('password', password);
+                payload.append('profileImage', profileImage);
+            }
+
+            const { data } = await adminApiClient.put('/profile', payload);
+            if (data.sessionInvalidated) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                window.location.assign('/login');
+                return;
+            }
+            onSaved(data.admin);
+            setName(data.admin?.name || name.trim());
+            setPassword('');
+            setProfileImage(null);
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setPreviewUrl('');
+            setStatus({ type: 'success', message: data.message || 'Profile admin berhasil diperbarui.' });
+        } catch (error) {
+            const responseMessage = typeof error.response?.data?.message === 'string'
+                ? error.response.data.message
+                : '';
+            const statusCode = Number(error.response?.status || 0);
+            const fallbackMessage = statusCode === 404
+                ? 'Endpoint profile admin belum aktif. Stop backend lama, lalu jalankan ulang npm run backend dari folder food-review.'
+                : error.request && !error.response
+                ? 'Backend belum aktif atau perlu di-restart agar fitur profile admin terbaru terbaca.'
+                : 'Profile admin belum bisa disimpan. Coba login ulang admin lalu simpan kembali.';
+
+            setStatus({
+                type: 'error',
+                message: responseMessage || fallbackMessage,
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="admin-profile-modal-overlay" role="presentation" onMouseDown={onClose}>
+            <form
+                className="admin-profile-modal"
+                onSubmit={handleSubmit}
+                onMouseDown={(event) => event.stopPropagation()}
+                aria-label="Edit profile admin"
+            >
+                <div className="admin-profile-modal-head">
+                    <div>
+                        <span>Akun admin</span>
+                        <strong>Edit profile</strong>
+                        <small>{admin?.username || 'admin'}</small>
+                    </div>
+                    <button type="button" aria-label="Tutup edit profile admin" onClick={onClose}>
+                        <X aria-hidden="true" />
+                    </button>
+                </div>
+
+                <label className="admin-profile-upload">
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} />
+                    <span>
+                        {currentImageUrl ? (
+                            <img src={currentImageUrl} alt="" />
+                        ) : (
+                            <em>{getAdminInitial(admin)}</em>
+                        )}
+                    </span>
+                    <strong>
+                        <Camera aria-hidden="true" />
+                        Ganti foto profil
+                    </strong>
+                    <small>JPG, PNG, atau WEBP maksimal 2MB.</small>
+                </label>
+
+                <label className="admin-profile-field">
+                    <span>Nama admin</span>
+                    <div className="admin-profile-input-shell">
+                        <UserRound aria-hidden="true" />
+                        <input
+                            value={name}
+                            onChange={(event) => {
+                                setName(event.target.value);
+                                setStatus(null);
+                            }}
+                            maxLength={60}
+                            placeholder="Nama admin"
+                        />
+                    </div>
+                </label>
+
+                <label className="admin-profile-field">
+                    <span>Password baru</span>
+                    <div className="admin-profile-input-shell">
+                        <ShieldCheck aria-hidden="true" />
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(event) => {
+                                setPassword(event.target.value);
+                                setStatus(null);
+                            }}
+                            placeholder="Kosongkan jika tidak diganti"
+                            autoComplete="new-password"
+                        />
+                        <button
+                            type="button"
+                            aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                            onClick={() => setShowPassword((current) => !current)}
+                        >
+                            {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                        </button>
+                    </div>
+                    <PasswordStrength password={password} compact emptyLabel="Tidak diganti" />
+                </label>
+
+                {status && (
+                    <div className={`admin-profile-status is-${status.type}`} role="status">
+                        {status.message}
+                    </div>
+                )}
+
+                <div className="admin-profile-actions">
+                    <button type="button" onClick={onClose}>
+                        Batal
+                    </button>
+                    <button type="submit" disabled={isSaving}>
+                        <Save aria-hidden="true" />
+                        {isSaving ? 'Menyimpan...' : 'Simpan profile'}
+                    </button>
+                </div>
+            </form>
         </div>
     );
 };
 
-/* ─────────────────────────────────────────────
-   CSS INJECTION (Eye-Catching & Modern SaaS)
-───────────────────────────────────────────── */
-const adminCSS = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+const StatusPill = ({ status }) => {
+    const normalized = status || 'approved';
+    const meta = getStatusMeta(normalized);
+    const Icon = meta.icon;
 
-    .dash-wrapper { font-family: 'Inter', sans-serif; background: #f8fafc; min-height: 100vh; color: #0f172a; padding-bottom: 80px; }
-    
-    /* Navbar */
-    .dash-nav { position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 0 clamp(24px, 5vw, 60px); height: 72px; border-bottom: 1px solid rgba(0,0,0,0.06); }
-    .glass-nav { background: rgba(255,255,255,0.85); backdrop-filter: blur(16px); box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
-    .dash-logo { font-size: 20px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #1f3f2f; letter-spacing: -0.5px; }
-    .dash-logo span { color: #efb84f; }
-    .tag-admin { background: linear-gradient(135deg, #1f3f2f, #112219); color: #fff; font-size: 10px; padding: 4px 10px; border-radius: 6px; font-weight: 800; letter-spacing: 0.5px; margin-left: 4px; box-shadow: 0 4px 10px rgba(31,63,47,0.15); }
-    .btn-logout { background: transparent; border: 1.5px solid #cbd5e1; color: #475569; padding: 8px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px; transition: 0.2s; }
-    .btn-logout:hover { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+    return (
+        <span className={`admin-status is-${meta.tone}`}>
+            <Icon aria-hidden="true" />
+            {meta.label}
+        </span>
+    );
+};
 
-    /* Hero */
-    .dash-hero { background: #1f3f2f; padding: 60px 24px 100px; color: #fff; position: relative; overflow: hidden; }
-    .dash-hero::after { content: ''; position: absolute; right: 0; top: 0; width: 50%; height: 100%; background: radial-gradient(circle at top right, rgba(239, 184, 79, 0.15), transparent 70%); pointer-events: none; }
-    .hero-content { max-width: 1100px; margin: 0 auto; position: relative; z-index: 10; }
-    .hero-text h1 { margin: 0 0 10px; font-size: 36px; font-weight: 900; letter-spacing: -1px; }
-    .hero-text p { margin: 0; color: #94a3b8; font-size: 16px; font-weight: 500; }
+const AdminQueueCard = ({ item, isSelected, onSelect }) => {
+    const submittedLabel = formatDate(item.submitted_at || item.updatedAt || item.createdAt);
 
-    /* Main Container */
-    .dash-main { max-width: 1100px; margin: -60px auto 0; padding: 0 24px; position: relative; z-index: 20; }
+    return (
+        <button className={isSelected ? 'admin-queue-card is-selected' : 'admin-queue-card'} type="button" onClick={onSelect}>
+            <img src={getImageUrl(item.image)} alt="" />
+            <span className="admin-queue-content">
+                <StatusPill status={getStatus(item)} />
+                <strong>{item.nama_umkm}</strong>
+                <small>{item.owner?.username || 'Owner tidak tersedia'} - {item.jenis_makanan || 'Kuliner'}</small>
+                <em>{submittedLabel}</em>
+            </span>
+        </button>
+    );
+};
 
-    /* 🌟 STATS GRID (NEW) */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 32px; }
-    .stat-card { background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 16px; transition: 0.3s; }
-    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 30px rgba(0,0,0,0.06); }
-    .icon-wrap { width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center; }
-    .icon-wrap.blue { background: #eff6ff; color: #3b82f6; }
-    .icon-wrap.green { background: #ecfdf5; color: #10b981; }
-    .icon-wrap.yellow { background: #fffbeb; color: #f59e0b; }
-    .icon-wrap.purple { background: #f5f3ff; color: #8b5cf6; }
-    .stat-info { display: flex; flex-direction: column; }
-    .stat-label { font-size: 13px; color: #64748b; font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-value { margin: 0; font-size: 26px; font-weight: 900; color: #0f172a; line-height: 1; }
-
-    /* Segmented Tabs */
-    .dash-tabs-container { display: flex; margin-bottom: 24px; }
-    .dash-tabs { display: flex; background: #fff; padding: 6px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; gap: 4px; }
-    .tab-item { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border: none; background: transparent; border-radius: 8px; font-weight: 700; color: #64748b; font-size: 14px; cursor: pointer; transition: 0.2s; }
-    .tab-item:hover { color: #0f172a; }
-    .tab-item.active { background: #1f3f2f; color: #fff; box-shadow: 0 4px 12px rgba(31,63,47,0.15); }
-    .tab-badge { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 800; }
-    .tab-item.active .tab-badge { background: rgba(255,255,255,0.2); color: #fff; }
-    .tab-item.active .tab-badge.alt { background: #efb84f; color: #181714; }
-
-    /* Grid & Cards */
-    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
-    .admin-card { background: #fff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
-    .admin-card:hover { transform: translateY(-6px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08); border-color: rgba(31,63,47,0.1); }
-    
-    .card-image-box { position: relative; height: 180px; width: 100%; overflow: hidden; }
-    .card-image-box img { width: 100%; height: 100%; object-fit: cover; transition: 0.5s; }
-    .admin-card:hover .card-image-box img { transform: scale(1.05); }
-    .card-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.4), transparent 50%); }
-    
-    .badge-status { position: absolute; top: 16px; right: 16px; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .badge-status.pending { background: rgba(255, 255, 255, 0.95); color: #b45309; }
-    .badge-status.active { background: rgba(31, 63, 47, 0.95); color: #fff; }
-
-    .card-content { padding: 20px; flex: 1; }
-    .card-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .meta-category { font-size: 12px; font-weight: 800; color: #1f3f2f; background: #f1f5f9; padding: 4px 10px; border-radius: 6px; }
-    .meta-date { font-size: 12px; color: #94a3b8; font-weight: 600; }
-    .card-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.3; }
-    .card-text { margin: 0; font-size: 14px; color: #64748b; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-    .card-actions { padding: 16px 20px; border-top: 1px solid #f1f5f9; display: flex; gap: 8px; background: #faf8f5; }
-    .action-btn { flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 12px; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer; transition: 0.2s; border: none; }
-    .action-btn.primary { background: #1f3f2f; color: #efb84f; }
-    .action-btn.primary:hover { background: #152b20; box-shadow: 0 6px 15px rgba(31,63,47,0.2); color: #fff; }
-    .action-btn.danger-icon { flex: none; width: 44px; background: #fff; border: 1px solid #fecaca; color: #ef4444; }
-    .action-btn.danger-icon:hover { background: #fef2f2; }
-
-    /* State Boxes */
-    .state-box { text-align: center; padding: 80px 20px; background: #fff; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.02); border: 1px dashed #cbd5e1; }
-    .state-box.empty { background: rgba(255,255,255,0.5); }
-    .state-box h3 { font-size: 22px; font-weight: 800; margin: 20px 0 8px; color: #0f172a; }
-    .state-box p { color: #64748b; margin: 0; font-size: 15px; }
-    .spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #1f3f2f; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
-
-    /* 🌟 MODAL SPLIT (High-Contrast Premium) */
-    .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; padding: 24px; animation: fadeIn 0.2s ease-out; }
-    .modal-container { background: #fff; width: 100%; max-width: 960px; max-height: 90vh; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-    
-    .modal-split { display: flex; height: 100%; max-height: 90vh; }
-    
-    /* Left: Visual Dark Theme */
-    .modal-visual { width: 360px; background: #0f172a; color: #fff; display: flex; flex-direction: column; position: relative; }
-    .modal-close-abs { position: absolute; top: 16px; left: 16px; z-index: 20; background: rgba(0,0,0,0.5); color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s; }
-    .modal-close-abs:hover { background: #ef4444; transform: scale(1.1); }
-    .visual-image { height: 280px; width: 100%; position: relative; }
-    .visual-image img { width: 100%; height: 100%; object-fit: cover; }
-    .visual-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 40%, #0f172a 100%); }
-    
-    .visual-content { padding: 0 24px 32px; margin-top: -20px; position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; }
-    .v-tag { align-self: flex-start; background: #efb84f; color: #181714; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 6px; margin-bottom: 16px; }
-    .v-title { margin: 0 0 24px; font-size: 28px; font-weight: 900; line-height: 1.2; letter-spacing: -0.5px; }
-    .v-stats { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
-    .v-stat-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 16px; border-radius: 12px; }
-    .v-stat-box .label { display: block; font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .v-stat-box .value { font-size: 16px; font-weight: 800; }
-    .text-green { color: #4ade80 !important; }
-    .text-gold { color: #fcd34d !important; }
-
-    /* Right: Data & Form Light Theme */
-    .modal-data { flex: 1; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
-    .data-header { padding: 24px 32px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-    .data-header h3 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; }
-    .btn-outline-small { background: #fff; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; gap: 8px; align-items: center; color: #334155; transition: 0.2s; }
-    .btn-outline-small:hover { border-color: #1f3f2f; color: #1f3f2f; background: #f8fafc; }
-
-    .data-body { flex: 1; padding: 32px; overflow-y: auto; }
-    
-    /* View Mode */
-    .info-grid { display: flex; flex-direction: column; gap: 24px; }
-    .info-row { display: flex; gap: 16px; }
-    .icon-wrapper { width: 44px; height: 44px; background: #f1f5f9; color: #64748b; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
-    .info-label { display: block; font-size: 13px; color: #64748b; font-weight: 700; margin-bottom: 6px; }
-    .info-value { margin: 0; font-size: 15px; color: #0f172a; font-weight: 500; line-height: 1.6; }
-    .info-value.box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px; margin-top: 8px; }
-    .price-badge { display: inline-block; font-weight: 800; font-size: 16px; color: #1f3f2f; }
-
-    /* Edit Mode */
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .form-group.full { grid-column: 1 / -1; }
-    .form-group label { display: block; font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 8px; }
-    .form-group input, .form-group textarea { width: 100%; padding: 14px; border: 1px solid #cbd5e1; border-radius: 10px; font-family: inherit; font-size: 14px; background: #f8fafc; transition: 0.2s; box-sizing: border-box;}
-    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #1f3f2f; background: #fff; box-shadow: 0 0 0 3px rgba(31,63,47,0.1); }
-
-    /* Modal Footer */
-    .data-footer { padding: 20px 32px; border-top: 1px solid #f1f5f9; background: #f8fafc; display: flex; gap: 12px; justify-content: flex-end; }
-    .btn-text { padding: 12px 20px; border: none; background: transparent; font-size: 14px; font-weight: 700; color: #64748b; cursor: pointer; border-radius: 10px; }
-    .btn-text:hover { background: #e2e8f0; color: #0f172a; }
-    .btn-solid { padding: 12px 24px; border: none; border-radius: 10px; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
-    .btn-solid.dark { background: #1f3f2f; color: #efb84f; }
-    .btn-solid.dark:hover { background: #152b20; transform: translateY(-2px); box-shadow: 0 8px 16px rgba(31,63,47,0.2); }
-    .btn-solid.danger { background: #fff; border: 1px solid #fecaca; color: #ef4444; }
-    .btn-solid.danger:hover { background: #fef2f2; }
-    .btn-solid.success { background: #10b981; color: #fff; }
-    .btn-solid.success:hover { background: #059669; box-shadow: 0 8px 16px rgba(16,185,129,0.2); }
-
-    .notice-toast { position: fixed; top: 90px; right: 24px; z-index: 1200; padding: 14px 24px; border-radius: 12px; font-size: 14px; font-weight: 700; color: #fff; box-shadow: 0 10px 25px rgba(0,0,0,0.15); animation: fadeIn 0.3s ease; }
-    .notice-toast.success { background: #10b981; } .notice-toast.error { background: #ef4444; }
-
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-
-    @media (max-width: 768px) {
-        .stats-grid { grid-template-columns: 1fr 1fr; }
-        .modal-split { flex-direction: column; max-height: 100vh; overflow-y: auto; }
-        .modal-visual { width: 100%; flex: none; }
-        .modal-container { max-height: 95vh; border-radius: 16px; }
-        .dash-tabs { width: 100%; overflow-x: auto; }
-        .tab-item { flex: 1; justify-content: center; white-space: nowrap; }
+const AdminDetailPanel = ({ item, note, onNoteChange, onApprove, onReject, isProcessing }) => {
+    if (!item) {
+        return (
+            <aside className="admin-detail-panel" id="admin-verification-panel">
+                <AdminState title="Pilih UMKM" text="Klik salah satu data di antrean untuk melihat detail verifikasi." />
+            </aside>
+        );
     }
-`;
+
+    const status = getStatus(item);
+    const meta = getStatusMeta(status);
+    const StatusIcon = meta.icon;
+    const pendingFields = getPendingFields(item);
+    const canDecide = status === 'pending_create' || status === 'pending_update' || status === 'rejected';
+
+    return (
+        <aside className="admin-detail-panel" id="admin-verification-panel">
+            <div className="admin-detail-cover">
+                <img src={getImageUrl(pendingFields?.image || item.pending_update?.primaryImage || item.image)} alt={item.nama_umkm} />
+                <StatusPill status={status} />
+            </div>
+
+            <div className="admin-detail-head">
+                <span>{meta.description}</span>
+                <h2>{item.nama_umkm}</h2>
+                <p>{item.deskripsi || 'Deskripsi belum tersedia.'}</p>
+            </div>
+
+            <div className={`admin-status-note is-${meta.tone}`}>
+                <StatusIcon aria-hidden="true" />
+                <span>
+                    {canDecide
+                        ? 'Periksa data, foto, alamat, dan perubahan sebelum mengambil keputusan.'
+                        : 'Data ini sudah selesai diproses dan tidak membutuhkan aksi tambahan.'}
+                </span>
+            </div>
+
+            <div className="admin-owner-box">
+                <strong>Owner</strong>
+                <span>{item.owner?.username || 'Tidak tersedia'}</span>
+                <small>{item.owner?.email || 'Email tidak tersedia'}</small>
+            </div>
+
+            <div className="admin-info-grid">
+                <Info label="Kategori" value={item.jenis_makanan || '-'} />
+                <Info label="Harga" value={item.harga_range || '-'} />
+                <Info label="Jam" value={item.jam_operasional || '-'} />
+                <Info label="Dikirim" value={formatDate(item.submitted_at || item.createdAt)} />
+            </div>
+
+            {status === 'pending_update' && pendingFields && (
+                <section className="admin-change-panel">
+                    <div className="admin-section-title">
+                        <span>Perubahan diajukan</span>
+                        <strong>Bandingkan data lama dan baru</strong>
+                    </div>
+
+                    <CompareRow label="Nama" before={getVisibleValue(item, 'nama_umkm')} after={getPendingValue(item, 'nama_umkm')} />
+                    <CompareRow label="Kategori" before={getVisibleValue(item, 'jenis_makanan')} after={getPendingValue(item, 'jenis_makanan')} />
+                    <CompareRow label="Harga" before={getVisibleValue(item, 'harga_range')} after={getPendingValue(item, 'harga_range')} />
+                    <CompareRow label="Jam" before={getVisibleValue(item, 'jam_operasional')} after={getPendingValue(item, 'jam_operasional')} />
+                    <CompareRow label="Alamat" before={getVisibleValue(item, 'alamat_teks')} after={getPendingValue(item, 'alamat_teks')} />
+                    <CompareRow label="Deskripsi" before={getVisibleValue(item, 'deskripsi')} after={getPendingValue(item, 'deskripsi')} />
+                </section>
+            )}
+
+            {item.verification_note && (
+                <div className="admin-last-note">
+                    <strong>Catatan terakhir</strong>
+                    <span>{item.verification_note}</span>
+                </div>
+            )}
+
+            <div className="admin-action-panel">
+                <div className="admin-note-box">
+                    <label>
+                        <span>Catatan admin</span>
+                        <textarea
+                            value={note}
+                            onChange={(event) => onNoteChange(event.target.value)}
+                            placeholder="Tulis alasan approve/reject, contoh: foto kurang jelas atau alamat perlu dilengkapi."
+                        />
+                    </label>
+                </div>
+
+                <div className="admin-decision-row">
+                    <button className="admin-approve" type="button" disabled={!canDecide || isProcessing} onClick={onApprove}>
+                        <CheckCircle2 aria-hidden="true" />
+                        <span>{isProcessing ? 'Memproses...' : 'Approve'}</span>
+                    </button>
+                    <button className="admin-reject" type="button" disabled={!canDecide || isProcessing} onClick={onReject}>
+                        <XCircle aria-hidden="true" />
+                        <span>Reject</span>
+                    </button>
+                </div>
+
+                {!canDecide && (
+                    <p className="admin-decision-help">Aksi verifikasi hanya aktif untuk UMKM baru, edit menunggu, atau data yang ditolak.</p>
+                )}
+            </div>
+
+            <a className="admin-open-link" href={`/umkm/${item.id}`} target="_blank" rel="noreferrer">
+                <Eye aria-hidden="true" />
+                <span>Lihat halaman detail</span>
+            </a>
+        </aside>
+    );
+};
+
+const Info = ({ label, value }) => (
+    <div className="admin-info-item">
+        <small>{label}</small>
+        <strong>{value}</strong>
+    </div>
+);
+
+const CompareRow = ({ label, before, after }) => (
+    <div className="admin-compare-row">
+        <small>{label}</small>
+        <span>{before}</span>
+        <strong>{after}</strong>
+    </div>
+);
+
+const AdminState = ({ title, text }) => (
+    <div className="admin-empty-state">
+        <ShieldCheck aria-hidden="true" />
+        <strong>{title}</strong>
+        <span>{text}</span>
+    </div>
+);
 
 export default AdminDashboard;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 
@@ -61,10 +61,14 @@ const Feed = () => {
 
     // Tangkap lemparan dari halaman Home (jika ada)
     useEffect(() => {
-        if (location.state?.defaultSort) {
+        if (!location.state?.defaultSort) return undefined;
+
+        const timeoutId = window.setTimeout(() => {
             setSortBy(location.state.defaultSort);
-        }
-    }, [location.state]);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [location.state?.defaultSort]);
 
     useEffect(() => {
         const fetchUMKM = async () => {
