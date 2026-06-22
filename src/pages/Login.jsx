@@ -12,22 +12,28 @@ const Login = () => {
         try {
             const { data } = await apiClient.post('/auth/login', { email, password });
             
-            
             // Simpan token untuk otorisasi
             console.log("ISI DATA DARI BACKEND:", data);
             localStorage.setItem('token', data.token);
 
-            // 🌟 [BARU] Simpan data user ke localStorage untuk dipakai di Profil & Navbar
-            // (Kita melakukan fallback ke data.user atau data, tergantung struktur backend-mu)
+            // Kita melakukan fallback ke data.user atau data, tergantung struktur backend-mu
             const userData = data.user || data;
             
+            // 🌟 [BARU] Simpan data user SECARA UTUH agar role-nya bisa dibaca di frontend
+            localStorage.setItem('user', JSON.stringify(userData));
             
             // Simpan nama (Cek atribut nama/username/nama_user dari backend)
             localStorage.setItem('userName', userData.nama || userData.username || userData.nama_user || 'Mahasiswa');
             // Simpan email (Bisa ambil dari input state jika dari backend tidak ada)
             localStorage.setItem('userEmail', userData.email || email);
 
-            navigate('/');
+            // 🌟 [BARU] LOGIKA PENGALIHAN (REDIRECT) BERDASARKAN ROLE
+            if (userData.role === 'admin') {
+                navigate('/admin'); // Jika Admin, lempar ke Dashboard Admin
+            } else {
+                navigate('/');      // Jika Mahasiswa, lempar ke Beranda
+            }
+
         } catch (err) {
             alert(err.response?.data?.message || 'Login Gagal');
         }
