@@ -2045,3 +2045,38 @@ body:has(.add-page) {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Memastikan panel foto tampil pada deployment */
+.add-layout > .add-sidebar {
+    display: grid !important;
+    position: static !important;
+    align-content: start;
+    align-self: start;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible;
+    z-index: 1;
+}
+
+.add-layout > .add-sidebar > .add-upload-panel,
+.add-layout > .add-sidebar > .add-preview-panel {
+    display: block !important;
+}
+
+.add-layout > .add-sidebar > .add-detail-photo-panel {
+    display: grid !important;
+}
+
+@media (max-width: 1050px) {
+    .add-layout {
+        grid-template-columns: 1fr !important;
+    }
+
+    .add-layout > .add-sidebar {
+        position: static !important;
+    }
+}
