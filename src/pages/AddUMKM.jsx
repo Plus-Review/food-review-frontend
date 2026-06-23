@@ -482,7 +482,7 @@ const AddUMKM = () => {
                     </div>
                 </div>
 
-                <aside id="add-photo-sidebar" className="add-sidebar">
+                <aside className="add-sidebar">
                     <section className="add-panel add-upload-panel">
                         <SectionTitle
                             number="02"
