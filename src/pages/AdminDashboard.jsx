@@ -10,6 +10,7 @@ import {
     LogOut,
     MailOpen,
     Menu,
+    PencilLine,
     RefreshCw,
     Search,
     Save,
@@ -24,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import adminApiClient from '../api/adminApiClient';
 import BrandLogo from '../components/BrandLogo';
 import PasswordStrength from '../components/PasswordStrength';
-import { getUploadUrl } from '../config/api';
+import { API_BASE_URL, getUploadUrl } from '../config/api';
 import { optimizeImageFile } from '../utils/imageUpload';
 import { getPasswordStrength, PASSWORD_RULE_MESSAGE } from '../utils/passwordStrength';
 import './AdminDashboard.css';
@@ -304,6 +305,50 @@ const AdminDashboard = () => {
                 type: 'error',
                 message: error.response?.data?.message || 'Gagal memproses keputusan admin.',
             });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleEditUmkm = () => {
+        if (!selectedItem) return;
+
+        // Hindari token user biasa mengambil prioritas ketika masuk mode admin.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate(`/umkm/${selectedItem.id}`);
+    };
+
+    const handleDeleteUmkm = async () => {
+        if (!selectedItem || isProcessing) return;
+
+        const confirmed = window.confirm(
+            `Hapus ${selectedItem.nama_umkm}? Seluruh review dan foto terkait juga akan dihapus.`,
+        );
+        if (!confirmed) return;
+
+        setIsProcessing(true);
+        setNotice(null);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/umkm/${selectedItem.id}`, {
+                method: 'DELETE',
+                headers: {
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('adminToken') || ''}`,
+                },
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal menghapus UMKM.');
+            }
+
+            setSelectedId(null);
+            await loadDashboard();
+            setNotice({ type: 'success', message: data.message || 'UMKM berhasil dihapus.' });
+            window.dispatchEvent(new Event('umkm-updated'));
+        } catch (error) {
+            setNotice({ type: 'error', message: error.message || 'Gagal menghapus UMKM.' });
         } finally {
             setIsProcessing(false);
         }
@@ -592,6 +637,8 @@ const AdminDashboard = () => {
                         onNoteChange={setNote}
                         onApprove={() => handleDecision('approve')}
                         onReject={() => handleDecision('reject')}
+                        onEdit={handleEditUmkm}
+                        onDelete={handleDeleteUmkm}
                         isProcessing={isProcessing}
                     />
                 </div>
@@ -951,7 +998,7 @@ const AdminQueueCard = ({ item, isSelected, onSelect }) => {
     );
 };
 
-const AdminDetailPanel = ({ item, note, onNoteChange, onApprove, onReject, isProcessing }) => {
+const AdminDetailPanel = ({ item, note, onNoteChange, onApprove, onReject, onEdit, onDelete, isProcessing }) => {
     if (!item) {
         return (
             <aside className="admin-detail-panel" id="admin-verification-panel">
@@ -1050,6 +1097,17 @@ const AdminDetailPanel = ({ item, note, onNoteChange, onApprove, onReject, isPro
                 {!canDecide && (
                     <p className="admin-decision-help">Aksi verifikasi hanya aktif untuk UMKM baru, edit menunggu, atau data yang ditolak.</p>
                 )}
+            </div>
+
+            <div className="admin-manage-row" aria-label="Kelola UMKM">
+                <button className="admin-manage-edit" type="button" disabled={isProcessing} onClick={onEdit}>
+                    <PencilLine aria-hidden="true" />
+                    <span>Edit UMKM</span>
+                </button>
+                <button className="admin-manage-delete" type="button" disabled={isProcessing} onClick={onDelete}>
+                    <Trash2 aria-hidden="true" />
+                    <span>{isProcessing ? 'Memproses...' : 'Hapus UMKM'}</span>
+                </button>
             </div>
 
             <a className="admin-open-link" href={`/umkm/${item.id}`} target="_blank" rel="noreferrer">

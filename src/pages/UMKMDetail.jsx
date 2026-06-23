@@ -156,7 +156,8 @@ const formatDate = (value) => {
 
 const getCachedUser = () => {
     try {
-        return JSON.parse(localStorage.getItem('user') || 'null');
+        const cacheKey = localStorage.getItem('adminToken') ? 'adminUser' : 'user';
+        return JSON.parse(localStorage.getItem(cacheKey) || 'null');
     } catch {
         return null;
     }
@@ -526,7 +527,9 @@ const UMKMDetail = () => {
     const reviewPhotosRef = useRef([]);
     const editReviewPhotosRef = useRef([]);
 
-    const isLoggedIn = Boolean(localStorage.getItem('token'));
+    const isLoggedIn = Boolean(
+        localStorage.getItem('token') || localStorage.getItem('adminToken'),
+    );
 
     const fetchDetail = useCallback(async ({ keepPrevious = false } = {}) => {
         try {
@@ -571,7 +574,8 @@ const UMKMDetail = () => {
             .then(({ data }) => {
                 if (!ignore) {
                     setCurrentUser(data.user);
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                    const cacheKey = localStorage.getItem('adminToken') ? 'adminUser' : 'user';
+                    localStorage.setItem(cacheKey, JSON.stringify(data.user));
                 }
             })
             .catch(() => {
@@ -685,7 +689,7 @@ const UMKMDetail = () => {
     const address = umkm?.alamat_teks || 'Alamat belum ditambahkan';
     const primaryImage = allImages[0] || FALLBACK_IMAGE;
     const detailImages = allImages.slice(1);
-    const isOwner = isLoggedIn && Number(umkm?.userId) === Number(currentUser?.id);
+    const canManageUmkm = isLoggedIn && currentUser?.role === 'admin';
     const isSaved = isLoggedIn && savedUmkmIds.includes(String(id));
     const editDetailPhotoCount = editDetailImages.length + editNewDetailPhotos.length;
     const isEditDetailGalleryFull = editDetailPhotoCount >= MAX_DETAIL_PHOTOS;
@@ -695,8 +699,11 @@ const UMKMDetail = () => {
         : '';
 
     const handleInvalidSession = () => {
+        const wasAdminSession = Boolean(localStorage.getItem('adminToken'));
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
         setCurrentUser(null);
         setSavedUmkmIds([]);
         window.dispatchEvent(new Event('profile-updated'));
@@ -705,7 +712,7 @@ const UMKMDetail = () => {
             type: 'warning',
             message: 'Sesi login kamu sudah tidak valid. Silakan login ulang agar bisa menyimpan UMKM atau mengelola review.',
             actionLabel: 'Login ulang',
-            actionTarget: '/login',
+            actionTarget: wasAdminSession ? '/admin' : '/login',
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -968,6 +975,11 @@ const UMKMDetail = () => {
     };
 
     const handleOpenEdit = () => {
+        if (!canManageUmkm) {
+            setPageNotice({ type: 'error', message: 'Hanya admin yang dapat mengedit UMKM.' });
+            return;
+        }
+
         setManageNotice(null);
         setEditImage(null);
         if (editPreview) URL.revokeObjectURL(editPreview);
@@ -1061,6 +1073,11 @@ const UMKMDetail = () => {
     const handleUpdateUmkm = async (event) => {
         event.preventDefault();
 
+        if (!canManageUmkm) {
+            setManageNotice({ type: 'error', message: 'Hanya admin yang dapat mengedit UMKM.' });
+            return;
+        }
+
         if (!editForm.nama_umkm.trim()) {
             setManageNotice({ type: 'error', message: 'Nama UMKM wajib diisi.' });
             return;
@@ -1103,6 +1120,12 @@ const UMKMDetail = () => {
     };
 
     const handleDeleteUmkm = async () => {
+        if (!canManageUmkm) {
+            setPageNotice({ type: 'error', message: 'Hanya admin yang dapat menghapus UMKM.' });
+            setIsDeleteModalOpen(false);
+            return;
+        }
+
         setIsDeleting(true);
         setManageNotice(null);
 
@@ -1199,7 +1222,7 @@ const UMKMDetail = () => {
                     </div>
                 )}
 
-                <section className={isOwner ? 'detail-hero is-owner' : 'detail-hero'}>
+                <section className={canManageUmkm ? 'detail-hero is-owner' : 'detail-hero'}>
                     <div className="detail-hero-copy">
                         <span className="detail-overline">Detail rekomendasi UMKM</span>
                         <h1>{umkm.nama_umkm}</h1>
@@ -1273,7 +1296,7 @@ const UMKMDetail = () => {
                                 </div>
                             </div>
 
-                            {isOwner && (
+                            {canManageUmkm && (
                                 <div className="detail-score-manage">
                                     <span>Kelola UMKM</span>
                                     <div>
@@ -1418,7 +1441,7 @@ const UMKMDetail = () => {
                 </section>
             </div>
 
-            {isEditModalOpen && (
+            {canManageUmkm && isEditModalOpen && (
                 <div className="detail-modal-overlay" role="dialog" aria-modal="true" aria-label="Edit UMKM" onClick={handleCloseEdit}>
                     <div className="detail-modal detail-manage-modal" onClick={(event) => event.stopPropagation()}>
                         <div className="detail-modal-head">
@@ -1582,7 +1605,7 @@ const UMKMDetail = () => {
                 </div>
             )}
 
-            {isDeleteModalOpen && (
+            {canManageUmkm && isDeleteModalOpen && (
                 <div className="detail-modal-overlay" role="dialog" aria-modal="true" aria-label="Hapus UMKM" onClick={() => setIsDeleteModalOpen(false)}>
                     <div className="detail-modal detail-delete-modal" onClick={(event) => event.stopPropagation()}>
                         <div className="detail-delete-icon" aria-hidden="true">
