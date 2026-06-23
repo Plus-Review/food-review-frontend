@@ -2135,3 +2135,58 @@ body:has(.add-page) {
     }
 }
 
+
+/* FIX: tampilkan panel foto dan preview */
+.add-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 450px) !important;
+}
+
+.add-layout > .add-sidebar {
+    display: grid !important;
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    position: static !important;
+    align-self: start !important;
+    align-content: start !important;
+    gap: 20px !important;
+    width: 100% !important;
+    height: auto !important;
+    min-width: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    transform: none !important;
+}
+
+.add-layout > .add-sidebar > .add-panel {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 180px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    transform: none !important;
+}
+
+.add-layout > .add-sidebar .add-upload {
+    display: grid !important;
+    min-height: 240px !important;
+}
+
+.add-layout > .add-sidebar .add-detail-photo-panel {
+    min-height: 360px !important;
+}
+
+@media (max-width: 1050px) {
+    .add-layout {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .add-layout > .add-sidebar {
+        grid-column: 1 !important;
+        grid-row: auto !important;
+    }
+}
+
