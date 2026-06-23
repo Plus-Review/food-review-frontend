@@ -2045,3 +2045,30 @@ body:has(.add-page) {
     transform: translateY(0) scale(1);
   }
 }
+#add-photo-sidebar.add-umkm-photo-column {
+    display: grid !important;
+    grid-column: 2;
+    align-self: start;
+    align-content: start;
+    gap: clamp(14px, 1.4vw, 20px);
+    width: 100%;
+    min-width: 0;
+    position: sticky;
+    top: 92px;
+    visibility: visible;
+    opacity: 1;
+}
+
+@media (max-width: 1100px) {
+    #add-photo-sidebar.add-umkm-photo-column {
+        grid-column: 1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        position: static;
+    }
+}
+
+@media (max-width: 700px) {
+    #add-photo-sidebar.add-umkm-photo-column {
+        display: contents !important;
+    }
+}
