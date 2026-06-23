@@ -2190,3 +2190,20 @@ body:has(.add-page) {
     }
 }
 
+/* Paksa kolom input foto tetap tampil */
+#add-photo-sidebar {
+    display: grid !important;
+    align-content: start !important;
+    gap: 20px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+@media (max-width: 1050px) {
+    #add-photo-sidebar {
+        grid-column: 1 !important;
+        position: static !important;
+    }
+}
