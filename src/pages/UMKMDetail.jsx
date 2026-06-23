@@ -888,7 +888,7 @@ const UMKMDetail = () => {
                 message: error.response?.data?.message || 'Gagal mengirim review. Pastikan akun sudah login.',
             });
         } finally {
-            setIsSavingUmkm(false);
+            setIsSubmitting(false);
         }
     };
 
