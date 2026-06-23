@@ -1,11 +1,8 @@
-const defaultApiBaseUrl = import.meta.env.DEV ? 'http://localhost:5000/api' : '/api';
-const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || defaultApiBaseUrl;
-const normalizedApiBaseUrl = rawApiBaseUrl.replace(/\/+$/, '');
+const API_URL = import.meta.env.DEV
+    ? 'http://localhost:5000/api'
+    : 'https://food-review-backend-j4bk.vercel.app/api';
 
-export const API_BASE_URL = normalizedApiBaseUrl.endsWith('/api')
-    ? normalizedApiBaseUrl
-    : `${normalizedApiBaseUrl}/api`;
-
+export const API_BASE_URL = API_URL;
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 
 export const getUploadUrl = (filename) => {
