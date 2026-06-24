@@ -896,8 +896,9 @@ const UMKMDetail = () => {
                 return;
             }
 
-            const responseMessage = error.response?.data?.message;
-            const fallbackMessage = error.request
+            const responseMessage = error.response?.data?.message
+                || error.response?.data?.errors?.[0]?.msg;
+            const fallbackMessage = !error.response && error.request
                 ? 'Backend tidak merespons. Periksa koneksi atau konfigurasi API, lalu coba kembali.'
                 : 'Review gagal dikirim. Silakan coba kembali.';
 
