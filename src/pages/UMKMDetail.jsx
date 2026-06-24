@@ -718,7 +718,9 @@ const UMKMDetail = () => {
     };
 
     const handleOpenReview = () => {
-        if (!isLoggedIn) {
+        const userToken = localStorage.getItem('token');
+
+        if (!userToken) {
             navigate('/login');
             return;
         }
@@ -852,6 +854,13 @@ const UMKMDetail = () => {
     const handleSubmitReview = async (event) => {
         event.preventDefault();
 
+        const userToken = localStorage.getItem('token');
+        if (!userToken) {
+            handleCloseReview();
+            navigate('/login');
+            return;
+        }
+
         if (rating === 0) {
             setModalNotice({ type: 'error', message: 'Pilih rating bintang terlebih dahulu.' });
             return;
@@ -868,7 +877,11 @@ const UMKMDetail = () => {
                 payload.append('review_images', photo.file);
             });
 
-            await apiClient.post(`/umkm/${id}/reviews`, payload);
+            await apiClient.post(`/umkm/${id}/reviews`, payload, {
+                headers: {
+                    Authorization: `Bearer ${userToken}`,
+                },
+            });
             handleCloseReview();
             setRating(0);
             setKomentar('');
@@ -883,9 +896,14 @@ const UMKMDetail = () => {
                 return;
             }
 
+            const responseMessage = error.response?.data?.message;
+            const fallbackMessage = error.request
+                ? 'Backend tidak merespons. Periksa koneksi atau konfigurasi API, lalu coba kembali.'
+                : 'Review gagal dikirim. Silakan coba kembali.';
+
             setModalNotice({
                 type: 'error',
-                message: error.response?.data?.message || 'Gagal mengirim review. Pastikan akun sudah login.',
+                message: responseMessage || fallbackMessage,
             });
         } finally {
             setIsSubmitting(false);
