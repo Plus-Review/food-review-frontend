@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import apiClient from '../api/apiClient';
 import AppNavbar from '../components/AppNavbar';
@@ -63,7 +63,6 @@ const AddUMKM = () => {
     const [position, setPosition] = useState(DEFAULT_POSITION);
     const [addressStatus, setAddressStatus] = useState('Titik awal berada di area kampus.');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLocating, setIsLocating] = useState(false);
     const [formData, setFormData] = useState(defaultFormData);
     const [detailPhotos, setDetailPhotos] = useState([]);
     const [selectedDetailPhotoId, setSelectedDetailPhotoId] = useState(null);
@@ -241,56 +240,6 @@ const AddUMKM = () => {
         } catch {
             setAddressStatus('Titik dipilih, alamat bisa ditulis manual.');
         }
-    };
-
-    const handleUseCurrentLocation = () => {
-        if (!navigator.geolocation) {
-            const message = 'Browser ini tidak mendukung fitur lokasi perangkat.';
-            setAddressStatus(message);
-            showSubmitNotice({
-                type: 'warning',
-                title: 'Fitur lokasi tidak tersedia',
-                message,
-            });
-            return;
-        }
-
-        setIsLocating(true);
-        setAddressStatus('Mencari lokasi perangkat...');
-
-        navigator.geolocation.getCurrentPosition(
-            async ({ coords }) => {
-                try {
-                    await handleLocationPick({
-                        lat: coords.latitude,
-                        lng: coords.longitude,
-                    });
-                } finally {
-                    setIsLocating(false);
-                }
-            },
-            (error) => {
-                const errorMessages = {
-                    1: 'Izin lokasi ditolak. Aktifkan izin lokasi untuk situs ini pada pengaturan browser.',
-                    2: 'Lokasi perangkat tidak tersedia. Pastikan GPS atau layanan lokasi telah aktif.',
-                    3: 'Pencarian lokasi terlalu lama. Silakan coba kembali.',
-                };
-                const message = errorMessages[error.code] || 'Lokasi saat ini tidak dapat ditemukan.';
-
-                setAddressStatus(message);
-                setIsLocating(false);
-                showSubmitNotice({
-                    type: 'warning',
-                    title: 'Lokasi tidak ditemukan',
-                    message,
-                });
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 12000,
-                maximumAge: 30000,
-            },
-        );
     };
 
     const handleSubmit = async (event) => {
@@ -492,18 +441,6 @@ const AddUMKM = () => {
                             description="Pilih titik di peta, lalu rapikan alamat jika perlu."
                         />
 
-                        <div className="add-location-actions">
-                            <button
-                                className="add-current-location-button"
-                                type="button"
-                                onClick={handleUseCurrentLocation}
-                                disabled={isLocating}
-                            >
-                                <span className="add-current-location-icon" aria-hidden="true" />
-                                <span>{isLocating ? 'Mencari lokasi...' : 'Gunakan lokasi sekarang'}</span>
-                            </button>
-                        </div>
-
                         <div className="add-location-grid">
                             <Field label="Alamat lengkap" required>
                                 <input
@@ -523,7 +460,6 @@ const AddUMKM = () => {
                         <div className="add-map-shell">
                             <MapContainer center={position} zoom={13} className="add-map">
                                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                <MapRecenter position={position} />
                                 <LocationMarker position={position} onLocationPick={handleLocationPick} />
                             </MapContainer>
                         </div>
@@ -546,15 +482,7 @@ const AddUMKM = () => {
                     </div>
                 </div>
 
-                <aside
-                    id="add-photo-sidebar"
-                    className="add-sidebar"
-                    style={{
-                        display: 'grid',
-                        visibility: 'visible',
-                        opacity: 1,
-                    }}
-                >
+                <aside id="add-photo-sidebar" className="add-umkm-photo-column">
                     <section className="add-panel add-upload-panel">
                         <SectionTitle
                             number="02"
@@ -811,18 +739,6 @@ const LocationMarker = ({ position, onLocationPick }) => {
     });
 
     return <Marker position={position} />;
-};
-
-const MapRecenter = ({ position }) => {
-    const map = useMap();
-
-    useEffect(() => {
-        map.flyTo(position, 17, {
-            duration: 0.8,
-        });
-    }, [map, position]);
-
-    return null;
 };
 
 export default AddUMKM;
