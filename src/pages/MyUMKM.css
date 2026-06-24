@@ -348,6 +348,20 @@
   height: 14px;
 }
 
+.my-umkm-footer .my-umkm-delete {
+  background: #a6382a;
+  color: #fff;
+}
+
+.my-umkm-footer .my-umkm-delete:hover:not(:disabled) {
+  background: #862b20;
+}
+
+.my-umkm-footer .my-umkm-delete:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 @media (max-width: 860px) {
   .my-umkm-toolbar {
     grid-template-columns: 1fr;

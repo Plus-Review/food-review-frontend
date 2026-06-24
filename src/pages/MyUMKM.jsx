@@ -9,6 +9,7 @@ import {
     Star,
     Store,
     Tag,
+    Trash2,
     X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -74,6 +75,7 @@ const MyUMKM = () => {
     const [profile, setProfile] = useState(() => (isLoggedIn ? getCachedUser() : null));
     const [items, setItems] = useState([]);
     const [isLoading, setIsLoading] = useState(isLoggedIn);
+    const [deletingId, setDeletingId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const searchLabel = getSearchQueryLabel(searchTerm);
     const profileId = profile?.id;
@@ -148,6 +150,30 @@ const MyUMKM = () => {
         return myItems.reduce((sum, item) => sum + getAverageRating(item), 0) / myItems.length;
     }, [myItems]);
 
+    const handleDeleteRejected = async (item) => {
+        if (item?.verification_status !== 'rejected' || deletingId) return;
+
+        const confirmed = window.confirm(
+            `Hapus "${item.nama_umkm}" dari UMKM Saya? Data yang sudah dihapus tidak dapat dikembalikan.`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(item.id);
+        try {
+            await apiClient.delete(`/umkm/mine/${item.id}`);
+            setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+            window.dispatchEvent(new Event('umkm-updated'));
+            window.dispatchEvent(new Event('notifications-updated'));
+        } catch (error) {
+            window.alert(
+                error.response?.data?.message
+                || 'UMKM yang ditolak belum dapat dihapus. Silakan coba kembali.'
+            );
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     return (
         <main className="category-page my-umkm-page">
             <AppNavbar active="umkm-saya" isLoggedIn={isLoggedIn} showWorkspaceLinks={isLoggedIn} />
@@ -216,7 +242,13 @@ const MyUMKM = () => {
                         ) : visibleItems.length > 0 ? (
                             <div className="my-umkm-grid">
                                 {visibleItems.map((item) => (
-                                    <MyUMKMCard key={item.id} item={item} navigate={navigate} />
+                                    <MyUMKMCard
+                                        key={item.id}
+                                        item={item}
+                                        navigate={navigate}
+                                        deletingId={deletingId}
+                                        onDeleteRejected={handleDeleteRejected}
+                                    />
                                 ))}
                             </div>
                         ) : (
@@ -248,9 +280,11 @@ const MyUMKMStat = ({ icon: Icon, value, label }) => (
     </div>
 );
 
-const MyUMKMCard = ({ item, navigate }) => {
+const MyUMKMCard = ({ item, navigate, deletingId, onDeleteRejected }) => {
     const reviews = getReviews(item);
     const rating = formatRating(getAverageRating(item));
+    const isRejected = item.verification_status === 'rejected';
+    const isDeleting = deletingId === item.id;
     const summary = getShortText(
         item.deskripsi || item.alamat_teks || item.harga_range,
         'Detail UMKM belum lengkap.'
@@ -296,16 +330,31 @@ const MyUMKMCard = ({ item, navigate }) => {
                         <MapPin aria-hidden="true" />
                         {item.alamat_teks || 'Alamat belum ditambahkan'}
                     </span>
-                    <button
-                        type="button"
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            navigate(`/umkm/${item.id}`);
-                        }}
-                    >
-                        <PencilLine aria-hidden="true" />
-                        Kelola
-                    </button>
+                    {isRejected ? (
+                        <button
+                            className="my-umkm-delete"
+                            type="button"
+                            disabled={isDeleting}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onDeleteRejected(item);
+                            }}
+                        >
+                            <Trash2 aria-hidden="true" />
+                            {isDeleting ? 'Menghapus...' : 'Hapus'}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/umkm/${item.id}`);
+                            }}
+                        >
+                            <PencilLine aria-hidden="true" />
+                            Kelola
+                        </button>
+                    )}
                 </div>
             </div>
         </article>
